@@ -251,7 +251,6 @@ fn ctx_log_fails_without_log_cap() {
 #[test]
 fn policy_log_redacts_secrets() {
     use tracing_subscriber::{Layer, layer::SubscriberExt};
-    use tracing_subscriber::{Layer, layer::SubscriberExt};
 
     // Capture log output
     let captured = Arc::new(Mutex::new(Vec::new()));

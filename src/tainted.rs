@@ -37,8 +37,18 @@ impl<T> Tainted<T> {
         Self { inner: value }
     }
 
-    // Note: No getter methods!
-    // Access will be added in Milestone 4 via sanitization.
+    /// Extracts the inner value for sanitization.
+    ///
+    /// # Safety (Policy-Level)
+    ///
+    /// This method is `pub(crate)` to restrict access to code within this crate.
+    /// It should ONLY be called by sanitizer implementations that will validate
+    /// the value before wrapping it in `Verified<T>`.
+    ///
+    /// External code cannot call this method and must go through the `Sanitizer` trait.
+    pub(crate) fn into_inner(self) -> T {
+        self.inner
+    }
 }
 
 impl<T: fmt::Debug> fmt::Debug for Tainted<T> {
