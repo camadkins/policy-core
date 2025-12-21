@@ -250,7 +250,7 @@ fn ctx_log_fails_without_log_cap() {
 
 #[test]
 fn policy_log_redacts_secrets() {
-    use std::sync::{Arc, Mutex};
+    use tracing_subscriber::{Layer, layer::SubscriberExt};
     use tracing_subscriber::{Layer, layer::SubscriberExt};
 
     // Capture log output
