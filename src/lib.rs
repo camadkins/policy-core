@@ -9,6 +9,9 @@
 //!
 //! - [`Secret<T>`]: Wrapper that redacts sensitive values in logs/output
 //! - [`Tainted<T>`]: Wrapper for untrusted data requiring sanitization
+//! - [`Verified<T>`]: Wrapper for validated/sanitized data safe to use
+//! - [`Sanitizer<T>`]: Trait for sanitizing tainted values into verified values
+//! - [`Sink<T>`]: Trait for operations that accept only verified values
 //! - [`Ctx`]: Validated execution context holding capabilities
 //! - [`LogCap`]: Capability proving authorization for logging operations
 //! - [`PolicyGate`]: Builder for validating policies and creating contexts
@@ -43,13 +46,17 @@
 
 mod capability;
 mod context;
+mod demo;
 mod error;
 mod gate;
 mod logging;
 mod policy;
 mod request;
+mod sanitizer;
 mod secret;
+mod sink;
 mod tainted;
+mod verified;
 
 pub use capability::{LogCap, log_with_capability};
 pub use context::Ctx;
@@ -58,5 +65,11 @@ pub use gate::PolicyGate;
 pub use logging::PolicyLog;
 pub use policy::{Authenticated, Authorized};
 pub use request::{Principal, RequestMeta};
+pub use sanitizer::{
+    AcceptAllSanitizer, RejectAllSanitizer, SanitizationError, SanitizationErrorKind, Sanitizer,
+    StringSanitizer,
+};
 pub use secret::Secret;
+pub use sink::{Sink, SinkError, SinkErrorKind, VecSink};
 pub use tainted::Tainted;
+pub use verified::Verified;
