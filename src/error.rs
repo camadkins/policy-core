@@ -8,6 +8,19 @@ pub enum Error {
 }
 
 impl fmt::Display for Error {
+    /// Formats the error as a human-readable policy message.
+    ///
+    /// Violations are displayed with the prefix "Policy violation: " followed by the violation's formatted representation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::error::{Error, Violation, ViolationKind};
+    ///
+    /// let v = Violation::new(ViolationKind::Unauthenticated, "token missing");
+    /// let e = Error::Violation(v);
+    /// assert_eq!(format!("{}", e), "Policy violation: Unauthenticated: token missing");
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Violation(v) => write!(f, "Policy violation: {}", v),
@@ -18,6 +31,18 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {}
 
 impl From<Violation> for Error {
+    /// Converts a `Violation` into the crate's top-level `Error`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let v = Violation::new(ViolationKind::Unauthenticated, "missing token");
+    /// let e: Error = v.into();
+    /// match e {
+    ///     Error::Violation(v) => assert_eq!(v.kind, ViolationKind::Unauthenticated),
+    ///     _ => panic!("expected violation"),
+    /// }
+    /// ```
     fn from(v: Violation) -> Self {
         Error::Violation(v)
     }
@@ -33,7 +58,17 @@ pub struct Violation {
 }
 
 impl Violation {
-    /// Creates a new violation.
+    /// Create a `Violation` with the specified kind and message.
+    ///
+    /// `kind` specifies the category of the violation; `message` is a human-readable explanation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let v = Violation::new(ViolationKind::Unauthenticated, "authentication required");
+    /// assert_eq!(v.kind, ViolationKind::Unauthenticated);
+    /// assert_eq!(v.message, "authentication required");
+    /// ```
     pub fn new(kind: ViolationKind, message: impl Into<String>) -> Self {
         Self {
             kind,
@@ -43,6 +78,16 @@ impl Violation {
 }
 
 impl fmt::Display for Violation {
+    /// Formats the violation as "<kind>: <message>".
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::error::{Violation, ViolationKind};
+    ///
+    /// let v = Violation::new(ViolationKind::Unauthenticated, "missing token");
+    /// assert_eq!(format!("{}", v), "Unauthenticated: missing token");
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.kind, self.message)
     }
@@ -63,6 +108,19 @@ pub enum ViolationKind {
 }
 
 impl fmt::Display for ViolationKind {
+    /// Formats a `ViolationKind` into a human-readable label.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::error::ViolationKind;
+    ///
+    /// assert_eq!(format!("{}", ViolationKind::Unauthenticated), "Unauthenticated");
+    /// assert_eq!(
+    ///     format!("{}", ViolationKind::Unauthorized { action: "delete" }),
+    ///     "Unauthorized for 'delete'"
+    /// );
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ViolationKind::Unauthenticated => write!(f, "Unauthenticated"),
