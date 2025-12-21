@@ -1,6 +1,7 @@
 use policy_core::{
     Authenticated, Authorized, PolicyGate, Principal, RequestMeta, Secret, Tainted, ViolationKind,
 };
+use std::sync::{Arc, Mutex};
 
 #[test]
 fn secret_is_fully_redacted() {
@@ -200,4 +201,132 @@ fn milestone_2_complete() {
         .expect("M2 complete");
 
     assert!(ctx.log_cap().is_some());
+}
+
+#[test]
+fn ctx_log_requires_log_cap() {
+    let meta_with_cap = RequestMeta {
+        request_id: "req-log-1".to_string(),
+        principal: Some(Principal {
+            id: "user-1".to_string(),
+            name: "Alice".to_string(),
+        }),
+    };
+
+    let ctx = PolicyGate::new(meta_with_cap)
+        .require(Authenticated)
+        .require(Authorized::for_action("log"))
+        .build()
+        .expect("should pass");
+
+    // Should succeed because LogCap was granted
+    assert!(ctx.log().is_ok());
+}
+
+#[test]
+fn ctx_log_fails_without_log_cap() {
+    let meta_without_cap = RequestMeta {
+        request_id: "req-log-2".to_string(),
+        principal: Some(Principal {
+            id: "user-2".to_string(),
+            name: "Bob".to_string(),
+        }),
+    };
+
+    let ctx = PolicyGate::new(meta_without_cap)
+        .require(Authenticated)
+        // No Authorized("log")
+        .build()
+        .expect("should pass");
+
+    // Should fail because LogCap was not granted
+    let result = ctx.log();
+    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err().kind,
+        ViolationKind::MissingLogCapability
+    );
+}
+
+#[test]
+fn policy_log_redacts_secrets() {
+    use std::sync::{Arc, Mutex};
+    use tracing_subscriber::{Layer, layer::SubscriberExt};
+
+    // Capture log output
+    let captured = Arc::new(Mutex::new(Vec::new()));
+    let captured_clone = captured.clone();
+
+    let layer = tracing_subscriber::fmt::layer()
+        .with_writer(move || CaptureWriter(captured_clone.clone()))
+        .with_filter(tracing_subscriber::filter::LevelFilter::INFO);
+
+    let subscriber = tracing_subscriber::registry().with(layer);
+
+    tracing::subscriber::with_default(subscriber, || {
+        let meta = RequestMeta {
+            request_id: "req-log-3".to_string(),
+            principal: Some(Principal {
+                id: "user-3".to_string(),
+                name: "Charlie".to_string(),
+            }),
+        };
+
+        let ctx = PolicyGate::new(meta)
+            .require(Authenticated)
+            .require(Authorized::for_action("log"))
+            .build()
+            .expect("should pass");
+
+        let logger = ctx.log().expect("should have LogCap");
+
+        let secret = Secret::new("password123");
+        logger.info(format_args!("Login with secret: {:?}", secret));
+    });
+
+    let output = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
+
+    // Secret should be redacted
+    assert!(output.contains("[REDACTED]"));
+    assert!(!output.contains("password123"));
+}
+
+#[test]
+fn milestone_3_complete() {
+    // ✓ PolicyLog wraps logging with capability requirement
+    // ✓ Ctx.log() is gated by LogCap
+    // ✓ Secrets are automatically redacted
+
+    let meta = RequestMeta {
+        request_id: "req-m3".to_string(),
+        principal: Some(Principal {
+            id: "user-m3".to_string(),
+            name: "Milestone".to_string(),
+        }),
+    };
+
+    let ctx = PolicyGate::new(meta)
+        .require(Authenticated)
+        .require(Authorized::for_action("log"))
+        .build()
+        .expect("M3 complete");
+
+    let logger = ctx.log().expect("LogCap granted");
+    let secret = Secret::new("secret-value");
+
+    // This should not panic and should redact the secret
+    logger.info(format_args!("Processing: {:?}", secret));
+}
+
+// Helper for capturing tracing output
+struct CaptureWriter(Arc<Mutex<Vec<u8>>>);
+
+impl std::io::Write for CaptureWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().unwrap().write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.lock().unwrap().flush()
+    }
 }
