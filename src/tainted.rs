@@ -1,0 +1,92 @@
+use std::fmt;
+
+/// A wrapper for untrusted data that must be explicitly sanitized before use.
+///
+/// `Tainted<T>` marks data from untrusted sources (user input, external APIs, etc.)
+/// and prevents accidental use in security-sensitive contexts. The value cannot be
+/// accessed without explicit validation or sanitization (added in Milestone 4).
+///
+/// # Security Properties
+///
+/// - Does NOT implement `Deref` or any implicit conversion traits
+/// - Inner value is completely inaccessible without sanitization
+/// - Prevents tainted data from flowing into sinks
+///
+/// # Examples
+///
+/// ```
+/// use policy_core::Tainted;
+///
+/// let user_input = Tainted::new("'; DROP TABLE users; --".to_string());
+///
+/// // Debug output shows it's tainted (for development)
+/// println!("{:?}", user_input); // Tainted { inner: "'; DROP..." }
+///
+/// // But you CANNOT use the value directly:
+/// // let query = format!("SELECT * FROM users WHERE name = '{}'", user_input); // Won't compile!
+/// ```
+pub struct Tainted<T> {
+    inner: T,
+}
+
+impl<T> Tainted<T> {
+    /// Wraps an untrusted value in `Tainted`.
+    ///
+    /// Use this for any data from external sources that has not been validated.
+    pub fn new(value: T) -> Self {
+        Self { inner: value }
+    }
+
+    // Note: No getter methods!
+    // Access will be added in Milestone 4 via sanitization.
+}
+
+impl<T: fmt::Debug> fmt::Debug for Tainted<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Tainted")
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tainted_wraps_value() {
+        let user_input = Tainted::new("malicious input".to_string());
+        let debug_output = format!("{:?}", user_input);
+
+        // Debug shows it's tainted
+        assert!(debug_output.contains("Tainted"));
+        assert!(debug_output.contains("malicious input"));
+    }
+
+    #[test]
+    fn tainted_prevents_direct_access() {
+        let tainted = Tainted::new(42);
+
+        // These would not compile if uncommented (good!):
+        // let value = tainted.inner; // ← private field
+        // let value = *tainted; // ← no Deref
+        // let value: &i32 = tainted.as_ref(); // ← no AsRef
+
+        // We can create it, but can't use it (yet)
+        let _ = tainted;
+    }
+
+    #[test]
+    fn tainted_cannot_be_used_as_t() {
+        let tainted_str = Tainted::new("unsafe".to_string());
+
+        // This function requires a String, not a Tainted<String>
+        #[allow(dead_code)]
+        fn takes_string(_s: String) {}
+
+        // This would not compile if uncommented:
+        // takes_string(tainted_str); // Type mismatch!
+
+        let _ = tainted_str;
+    }
+}
