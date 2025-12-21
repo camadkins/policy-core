@@ -109,6 +109,8 @@ pub enum ViolationKind {
         /// The action that was not authorized
         action: &'static str,
     },
+    /// Logging capability was not granted
+    MissingLogCapability,
 }
 
 impl fmt::Display for ViolationKind {
@@ -124,11 +126,16 @@ impl fmt::Display for ViolationKind {
     ///     format!("{}", ViolationKind::Unauthorized { action: "delete" }),
     ///     "Unauthorized for 'delete'"
     /// );
+    /// assert_eq!(
+    ///     format!("{}", ViolationKind::MissingLogCapability),
+    ///     "Missing logging capability"
+    /// );
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ViolationKind::Unauthenticated => write!(f, "Unauthenticated"),
             ViolationKind::Unauthorized { action } => write!(f, "Unauthorized for '{}'", action),
+            ViolationKind::MissingLogCapability => write!(f, "Missing logging capability"),
         }
     }
 }

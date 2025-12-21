@@ -1,4 +1,6 @@
 use crate::capability::LogCap;
+use crate::error::{Violation, ViolationKind};
+use crate::logging::PolicyLog;
 
 /// Execution context containing request metadata and capabilities.
 ///
@@ -8,8 +10,8 @@ use crate::capability::LogCap;
 ///
 /// # Construction
 ///
-/// `Ctx` cannot be constructed by user code. It is created exclusively
-/// by `PolicyGate` after validating policies.
+/// `Ctx` cannot be constructed by user code. In Milestone 2, it will be
+/// created exclusively by `PolicyGate` after validating policies.
 ///
 /// # Examples
 ///
@@ -27,7 +29,7 @@ impl Ctx {
     /// Creates a new context with a request ID and optional logging capability.
     ///
     /// This is `pub(crate)` so only code within policy-core can create Ctx.
-    /// PolicyGate calls this after validating policies.
+    /// In Milestone 2, PolicyGate will call this after validating policies.
     #[allow(dead_code)] // Will be used by PolicyGate in Milestone 2
     pub(crate) fn new_unchecked(request_id: String, log_cap: Option<LogCap>) -> Self {
         Self {
@@ -47,6 +49,42 @@ impl Ctx {
     /// `None` otherwise.
     pub fn log_cap(&self) -> Option<LogCap> {
         self.log_cap
+    }
+
+    /// Returns a capability-gated logger.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err(Violation)` if `LogCap` was not granted.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use policy_core::{PolicyGate, RequestMeta, Principal, Authenticated, Authorized, Secret};
+    /// # let meta = RequestMeta {
+    /// #     request_id: "req-1".to_string(),
+    /// #     principal: Some(Principal { id: "u1".to_string(), name: "Alice".to_string() }),
+    /// # };
+    /// # let ctx = PolicyGate::new(meta)
+    /// #     .require(Authenticated)
+    /// #     .require(Authorized::for_action("log"))
+    /// #     .build()
+    /// #     .unwrap();
+    /// let logger = ctx.log().expect("LogCap required");
+    ///
+    /// let secret = Secret::new("password123");
+    /// logger.info(format_args!("User logged in: {:?}", secret));
+    /// // Logs: "User logged in: [REDACTED]"
+    /// ```
+    pub fn log(&self) -> Result<PolicyLog<'_>, Violation> {
+        if self.log_cap.is_some() {
+            Ok(PolicyLog::new())
+        } else {
+            Err(Violation::new(
+                ViolationKind::MissingLogCapability,
+                "Logging capability not granted",
+            ))
+        }
     }
 }
 
@@ -77,5 +115,19 @@ mod tests {
         // If you try to call it from outside the crate, it won't compile:
 
         // let ctx = policy_core::Ctx::new_unchecked("test".to_string(), None); // Error!
+    }
+
+    #[test]
+    fn ctx_log_requires_capability() {
+        let ctx_with_cap = Ctx::new_unchecked("req-1".to_string(), Some(LogCap::new()));
+        assert!(ctx_with_cap.log().is_ok());
+
+        let ctx_without_cap = Ctx::new_unchecked("req-2".to_string(), None);
+        let result = ctx_without_cap.log();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().kind,
+            ViolationKind::MissingLogCapability
+        );
     }
 }
