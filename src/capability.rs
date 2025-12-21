@@ -37,7 +37,6 @@ impl LogCap {
 /// ```no_run
 /// // This would not compile - LogCap cannot be constructed publicly:
 /// // let cap = LogCap { _private: () }; // Error: _private is private
-/// // policy_core::log_with_capability(cap, "test");
 /// ```
 pub fn log_with_capability(_cap: LogCap, message: &str) -> String {
     format!("[LOGGED] {}", message)

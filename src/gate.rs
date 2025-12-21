@@ -54,10 +54,18 @@ impl PolicyGate {
     /// # Examples
     ///
     /// ```
-    /// let meta = RequestMeta::default();
+    /// use policy_core::{PolicyGate, RequestMeta, Principal, Authenticated};
+    ///
+    /// let meta = RequestMeta {
+    ///     request_id: "req-123".to_string(),
+    ///     principal: Some(Principal {
+    ///         id: "u1".to_string(),
+    ///         name: "Alice".to_string(),
+    ///     }),
+    /// };
     /// let gate = PolicyGate::new(meta)
-    ///     .require(PolicyReq::Authenticated)
-    ///     .require(PolicyReq::Authenticated); // second call is deduplicated
+    ///     .require(Authenticated)
+    ///     .require(Authenticated); // second call is deduplicated
     /// ```
     pub fn require(mut self, policy: impl Into<PolicyReq>) -> Self {
         let req = policy.into();
@@ -87,10 +95,18 @@ impl PolicyGate {
     /// # Examples
     ///
     /// ```
-    /// // given `meta: RequestMeta` and optional policy requirements:
+    /// use policy_core::{PolicyGate, RequestMeta, Principal, Authenticated, Authorized};
+    ///
+    /// let meta = RequestMeta {
+    ///     request_id: "req-123".to_string(),
+    ///     principal: Some(Principal {
+    ///         id: "u1".to_string(),
+    ///         name: "Alice".to_string(),
+    ///     }),
+    /// };
     /// let ctx = PolicyGate::new(meta)
-    ///     .require(PolicyReq::Authenticated)
-    ///     .require(PolicyReq::Authorized { action: "log".into() })
+    ///     .require(Authenticated)
+    ///     .require(Authorized::for_action("log"))
     ///     .build()
     ///     .unwrap();
     /// ```
@@ -113,16 +129,7 @@ impl PolicyGate {
     ///
     /// Returns `Ok(())` if every requirement validates successfully, or `Err(Violation)` for the first requirement that fails.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// let meta = RequestMeta::default();
-    /// let gate = PolicyGate::new(meta).require(PolicyReq::Authenticated);
-    /// match gate.validate_all() {
-    ///     Ok(()) => { /* all requirements satisfied */ }
-    ///     Err(v) => { /* handle violation */ }
-    /// }
-    /// ```
+    /// Note: This is an internal method called by `build()`.
     fn validate_all(&self) -> Result<(), Violation> {
         for req in &self.requirements {
             self.validate_one(req)?;
@@ -157,20 +164,7 @@ impl PolicyGate {
 
     /// Determines whether any requirement authorizes the specified action.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// // Construct a gate that requires the "log" authorization and check it.
-    /// # use crate::{PolicyGate, PolicyReq, RequestMeta};
-    /// let meta = RequestMeta::default();
-    /// let gate = PolicyGate::new(meta).require(PolicyReq::Authorized { action: "log".into() });
-    /// assert!(gate.requires_authorization("log"));
-    /// assert!(!gate.requires_authorization("read"));
-    /// ```
-    ///
-    /// # Returns
-    ///
-    /// `true` if a `PolicyReq::Authorized` with the given action exists among the gate's requirements, `false` otherwise.
+    /// Returns `true` if a `PolicyReq::Authorized` with the given action exists among the gate's requirements, `false` otherwise.
     fn requires_authorization(&self, action: &str) -> bool {
         self.requirements
             .iter()
@@ -181,21 +175,6 @@ impl PolicyGate {
     ///
     /// Two requirements are considered equivalent when they are both `PolicyReq::Authenticated`
     /// or when they are both `PolicyReq::Authorized` with the same `action`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let a = PolicyReq::Authenticated;
-    /// let b = PolicyReq::Authenticated;
-    /// assert!(PolicyGate::new(RequestMeta::default()).same_requirement(&a, &b));
-    ///
-    /// let x = PolicyReq::Authorized { action: "log".into() };
-    /// let y = PolicyReq::Authorized { action: "log".into() };
-    /// assert!(PolicyGate::new(RequestMeta::default()).same_requirement(&x, &y));
-    ///
-    /// let z = PolicyReq::Authorized { action: "read".into() };
-    /// assert!(!PolicyGate::new(RequestMeta::default()).same_requirement(&x, &z));
-    /// ```
     fn same_requirement(&self, a: &PolicyReq, b: &PolicyReq) -> bool {
         match (a, b) {
             (PolicyReq::Authenticated, PolicyReq::Authenticated) => true,
