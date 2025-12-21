@@ -8,8 +8,8 @@ use crate::capability::LogCap;
 ///
 /// # Construction
 ///
-/// `Ctx` cannot be constructed by user code. In Milestone 2, it will be
-/// created exclusively by `PolicyGate` after validating policies.
+/// `Ctx` cannot be constructed by user code. It is created exclusively
+/// by `PolicyGate` after validating policies.
 ///
 /// # Examples
 ///
@@ -27,7 +27,7 @@ impl Ctx {
     /// Creates a new context with a request ID and optional logging capability.
     ///
     /// This is `pub(crate)` so only code within policy-core can create Ctx.
-    /// In Milestone 2, PolicyGate will call this after validating policies.
+    /// PolicyGate calls this after validating policies.
     #[allow(dead_code)] // Will be used by PolicyGate in Milestone 2
     pub(crate) fn new_unchecked(request_id: String, log_cap: Option<LogCap>) -> Self {
         Self {

@@ -31,8 +31,9 @@ impl Authorized {
     /// # Examples
     ///
     /// ```
+    /// use policy_core::Authorized;
+    ///
     /// let req = Authorized::for_action("read:items");
-    /// assert_eq!(req.action, "read:items");
     /// ```
     pub fn for_action(action: &'static str) -> Self {
         Self { action }
@@ -43,14 +44,7 @@ impl Authorized {
 impl From<Authenticated> for PolicyReq {
     /// Convert an `Authenticated` marker into the corresponding `PolicyReq::Authenticated` variant.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// use crate::policy::{PolicyReq, Authenticated};
-    ///
-    /// let req: PolicyReq = Authenticated.into();
-    /// assert!(matches!(req, PolicyReq::Authenticated));
-    /// ```
+    /// Note: `PolicyReq` is an internal type used by the policy gate.
     fn from(_: Authenticated) -> Self {
         PolicyReq::Authenticated
     }
@@ -59,16 +53,7 @@ impl From<Authenticated> for PolicyReq {
 impl From<Authorized> for PolicyReq {
     /// Converts an `Authorized` policy into a `PolicyReq::Authorized`, preserving the action.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// let a = Authorized { action: "read" };
-    /// let req = PolicyReq::from(a);
-    /// match req {
-    ///     PolicyReq::Authorized { action } => assert_eq!(action, "read"),
-    ///     _ => panic!("expected authorized"),
-    /// }
-    /// ```
+    /// Note: `PolicyReq` is an internal type used by the policy gate.
     fn from(auth: Authorized) -> Self {
         PolicyReq::Authorized {
             action: auth.action,

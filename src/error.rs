@@ -15,7 +15,7 @@ impl fmt::Display for Error {
     /// # Examples
     ///
     /// ```
-    /// use crate::error::{Error, Violation, ViolationKind};
+    /// use policy_core::{Error, Violation, ViolationKind};
     ///
     /// let v = Violation::new(ViolationKind::Unauthenticated, "token missing");
     /// let e = Error::Violation(v);
@@ -36,6 +36,8 @@ impl From<Violation> for Error {
     /// # Examples
     ///
     /// ```
+    /// use policy_core::{Error, Violation, ViolationKind};
+    ///
     /// let v = Violation::new(ViolationKind::Unauthenticated, "missing token");
     /// let e: Error = v.into();
     /// match e {
@@ -65,6 +67,8 @@ impl Violation {
     /// # Examples
     ///
     /// ```
+    /// use policy_core::{Violation, ViolationKind};
+    ///
     /// let v = Violation::new(ViolationKind::Unauthenticated, "authentication required");
     /// assert_eq!(v.kind, ViolationKind::Unauthenticated);
     /// assert_eq!(v.message, "authentication required");
@@ -83,7 +87,7 @@ impl fmt::Display for Violation {
     /// # Examples
     ///
     /// ```
-    /// use crate::error::{Violation, ViolationKind};
+    /// use policy_core::{Violation, ViolationKind};
     ///
     /// let v = Violation::new(ViolationKind::Unauthenticated, "missing token");
     /// assert_eq!(format!("{}", v), "Unauthenticated: missing token");
@@ -113,7 +117,7 @@ impl fmt::Display for ViolationKind {
     /// # Examples
     ///
     /// ```
-    /// use crate::error::ViolationKind;
+    /// use policy_core::ViolationKind;
     ///
     /// assert_eq!(format!("{}", ViolationKind::Unauthenticated), "Unauthenticated");
     /// assert_eq!(
