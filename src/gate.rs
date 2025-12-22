@@ -1,4 +1,5 @@
 use crate::{
+    audit::AuditCap,
     capability::{HttpCap, LogCap},
     context::Ctx,
     error::{Violation, ViolationKind},
@@ -134,12 +135,19 @@ impl PolicyGate {
             None
         };
 
+        let audit_cap = if self.requires_authorization("audit") {
+            Some(AuditCap::new())
+        } else {
+            None
+        };
+
         // 3. Build Ctx<Authorized> with the principal from metadata
         Ok(Ctx::new_authorized(
             self.meta.request_id,
             self.meta.principal,
             log_cap,
             http_cap,
+            audit_cap,
         ))
     }
 
