@@ -645,3 +645,176 @@ fn milestone_5_complete() {
     // Verify that the pattern scales to a second sink
     assert_eq!(http.request_count(), 1);
 }
+
+// ============================================================================
+// Milestone 6: Type-State Contexts Tests
+// ============================================================================
+//
+// Note: Direct state transition tests (Unauthed -> Authed -> Authorized)
+// are in src/context.rs as unit tests since they require pub(crate) access.
+// Integration tests focus on the public API via PolicyGate.
+
+#[test]
+fn typestate_policy_gate_returns_authorized_ctx() {
+    // PolicyGate::build() returns Ctx<Authorized> directly
+    let meta = RequestMeta {
+        request_id: "req-typestate-3".to_string(),
+        principal: Some(Principal {
+            id: "user-ts-3".to_string(),
+            name: "Gate User".to_string(),
+        }),
+    };
+
+    let ctx = PolicyGate::new(meta)
+        .require(Authenticated)
+        .require(Authorized::for_action("log"))
+        .build()
+        .expect("policies should pass");
+
+    // ctx is Ctx<Authorized> and has access to privileged operations
+    assert!(ctx.principal().is_some());
+    assert!(ctx.log_cap().is_some());
+    assert!(ctx.log().is_ok());
+}
+
+#[test]
+fn typestate_compile_time_restrictions() {
+    // This test documents compile-time restrictions.
+    // The following code would NOT compile if uncommented:
+
+    // use policy_core::Ctx;
+    //
+    // let unauthed = Ctx::new_unauthed("req-test".to_string());
+    //
+    // // Error: method `log` not found for type `Ctx<Unauthed>`
+    // unauthed.log();
+    //
+    // // Error: method `http` not found for type `Ctx<Unauthed>`
+    // unauthed.http();
+    //
+    // // Error: method `log_cap` not found for type `Ctx<Unauthed>`
+    // unauthed.log_cap();
+    //
+    // let principal = Principal { id: "u1".to_string(), name: "Alice".to_string() };
+    // let authed = unauthed.authenticate(Some(principal)).unwrap();
+    //
+    // // Error: method `log` not found for type `Ctx<Authed>`
+    // authed.log();
+    //
+    // // Error: method `http` not found for type `Ctx<Authed>`
+    // authed.http();
+}
+
+#[test]
+fn typestate_authorized_ctx_with_selective_capabilities() {
+    // Test that Ctx<Authorized> enforces capability requirements even after
+    // successful authentication and authorization.
+
+    let meta = RequestMeta {
+        request_id: "req-typestate-4".to_string(),
+        principal: Some(Principal {
+            id: "user-ts-4".to_string(),
+            name: "Selective User".to_string(),
+        }),
+    };
+
+    // Build context with only log capability
+    let ctx = PolicyGate::new(meta)
+        .require(Authenticated)
+        .require(Authorized::for_action("log"))
+        // No HTTP authorization
+        .build()
+        .expect("should pass");
+
+    // Log should succeed
+    assert!(ctx.log().is_ok());
+
+    // HTTP should fail (no capability)
+    let result = ctx.http();
+    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err().kind,
+        ViolationKind::MissingHttpCapability
+    );
+}
+
+#[test]
+fn typestate_end_to_end_with_policy_gate() {
+    // Complete end-to-end test showing PolicyGate usage with typestate
+    let meta = RequestMeta {
+        request_id: "req-typestate-e2e".to_string(),
+        principal: Some(Principal {
+            id: "user-ts-e2e".to_string(),
+            name: "E2E TypeState User".to_string(),
+        }),
+    };
+
+    // PolicyGate validates and returns Ctx<Authorized>
+    let ctx = PolicyGate::new(meta)
+        .require(Authenticated)
+        .require(Authorized::for_action("log"))
+        .require(Authorized::for_action("http"))
+        .build()
+        .expect("policies should pass");
+
+    // Verify state
+    assert!(ctx.principal().is_some());
+    assert_eq!(ctx.principal().unwrap().name, "E2E TypeState User");
+    assert!(ctx.log_cap().is_some());
+    assert!(ctx.http_cap().is_some());
+
+    // Use privileged operations
+    let logger = ctx.log().expect("LogCap granted");
+    let http = ctx.http().expect("HttpCap granted");
+
+    // Demonstrate usage
+    use policy_core::{Sanitizer, Secret, StringSanitizer, Tainted};
+
+    let secret = Secret::new("api-key-12345");
+    logger.info(format_args!("Processing request with key: {:?}", secret));
+
+    let sanitizer = StringSanitizer::new(256);
+    let url = Tainted::new("https://api.example.com/data".to_string());
+    let verified_url = sanitizer.sanitize(url).expect("valid URL");
+
+    http.get(&verified_url);
+
+    assert_eq!(http.request_count(), 1);
+}
+
+#[test]
+fn milestone_6_complete() {
+    // ✓ Type-state markers (Unauthed, Authed, Authorized) exist
+    // ✓ Ctx<S> is generic over state
+    // ✓ State transitions are explicit and testable (see src/context.rs tests)
+    // ✓ Privileged operations only available on Ctx<Authorized>
+    // ✓ PolicyGate returns Ctx<Authorized> directly
+    // ✓ Compile-time enforcement prevents misuse
+
+    // Test PolicyGate integration with typestate
+    let meta = RequestMeta {
+        request_id: "req-m6-gate".to_string(),
+        principal: Some(Principal {
+            id: "user-m6-gate".to_string(),
+            name: "Milestone 6 Gate".to_string(),
+        }),
+    };
+
+    // PolicyGate::build() returns Ctx<Authorized>
+    let ctx = PolicyGate::new(meta)
+        .require(Authenticated)
+        .require(Authorized::for_action("log"))
+        .build()
+        .expect("M6 complete");
+
+    // Verify that the context has the principal (typestate progression happened)
+    assert!(ctx.principal().is_some());
+    assert_eq!(ctx.principal().unwrap().id, "user-m6-gate");
+
+    // Verify that privileged operations are available on Ctx<Authorized>
+    assert!(ctx.log().is_ok());
+
+    // Verify that capabilities are enforced
+    assert!(ctx.log_cap().is_some());
+    assert!(ctx.http_cap().is_none()); // Not authorized for HTTP
+}

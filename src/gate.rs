@@ -4,6 +4,7 @@ use crate::{
     error::{Violation, ViolationKind},
     policy::PolicyReq,
     request::RequestMeta,
+    state::Authorized,
 };
 
 /// The policy enforcement gate.
@@ -82,11 +83,14 @@ impl PolicyGate {
         self
     }
 
-    /// Builds a `Ctx` from the gate after validating accumulated policy requirements.
+    /// Builds a `Ctx<Authorized>` from the gate after validating accumulated policy requirements.
     ///
-    /// Validates all configured requirements; if validation succeeds, grants capabilities
-    /// implied by the requirements (for example, a `log` capability) and returns a `Ctx`
-    /// constructed with the request id and the granted capabilities.
+    /// This method performs the full type-state progression internally:
+    /// - Validates all policy requirements
+    /// - Authenticates (if Authenticated policy is present)
+    /// - Authorizes (grants capabilities based on satisfied policies)
+    ///
+    /// Returns a fully authorized context that can access privileged operations.
     ///
     /// # Errors
     ///
@@ -109,8 +113,11 @@ impl PolicyGate {
     ///     .require(Authorized::for_action("log"))
     ///     .build()
     ///     .unwrap();
+    ///
+    /// // ctx is Ctx<Authorized>
+    /// assert!(ctx.log_cap().is_some());
     /// ```
-    pub fn build(self) -> Result<Ctx, Violation> {
+    pub fn build(self) -> Result<Ctx<Authorized>, Violation> {
         // 1. Validate all policies FIRST
         self.validate_all()?;
 
@@ -127,8 +134,13 @@ impl PolicyGate {
             None
         };
 
-        // 3. Build Ctx using existing pub(crate) constructor
-        Ok(Ctx::new_unchecked(self.meta.request_id, log_cap, http_cap))
+        // 3. Build Ctx<Authorized> with the principal from metadata
+        Ok(Ctx::new_authorized(
+            self.meta.request_id,
+            self.meta.principal,
+            log_cap,
+            http_cap,
+        ))
     }
 
     /// Check that all configured policy requirements are satisfied.

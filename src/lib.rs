@@ -56,6 +56,7 @@ mod request;
 mod sanitizer;
 mod secret;
 mod sink;
+mod state;
 mod tainted;
 mod verified;
 
@@ -73,5 +74,6 @@ pub use sanitizer::{
 };
 pub use secret::Secret;
 pub use sink::{Sink, SinkError, SinkErrorKind, VecSink};
+pub use state::{Authed, Authorized as AuthorizedState, Unauthed};
 pub use tainted::Tainted;
 pub use verified::Verified;
