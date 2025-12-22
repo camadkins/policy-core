@@ -51,7 +51,39 @@ impl AuditTrail {
 
     /// Returns a snapshot of all recorded events.
     ///
-    /// This clones the events to avoid holding the borrow.
+    /// # Performance Note
+    ///
+    /// **This method clones the entire event vector.**
+    ///
+    /// This is intentional to avoid holding an immutable borrow of the internal
+    /// `RefCell`, but it means the cost is O(n) where n is the number of events.
+    ///
+    /// This method is designed for:
+    /// - Testing and verification (reading a small number of events)
+    /// - Periodic snapshots for export/persistence
+    ///
+    /// For large audit trails, consider:
+    /// - Using `len()` or `is_empty()` for simple checks (no cloning)
+    /// - Implementing a custom iterator or streaming interface
+    /// - Integrating with a persistent audit backend directly
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use policy_core::audit::{AuditTrail, AuditEvent, AuditEventKind, AuditOutcome};
+    ///
+    /// let trail = AuditTrail::new();
+    /// trail.record(AuditEvent::new(
+    ///     "req-1",
+    ///     Some("user@example.com"),
+    ///     AuditEventKind::AdminAction,
+    ///     AuditOutcome::Success,
+    /// ));
+    ///
+    /// // events() clones the vector - fine for small trails
+    /// let snapshot = trail.events();
+    /// assert_eq!(snapshot.len(), 1);
+    /// ```
     pub fn events(&self) -> Vec<AuditEvent> {
         self.events.borrow().clone()
     }

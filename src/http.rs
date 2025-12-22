@@ -34,8 +34,12 @@ impl fmt::Display for HttpMethod {
 ///
 /// This structure captures the essential details of an HTTP request without
 /// storing the full request body to avoid leaking sensitive data in tests.
+///
+/// Includes the request ID for tracing and correlation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpRequest {
+    /// Request ID for tracing
+    pub request_id: String,
     /// HTTP method used
     pub method: HttpMethod,
     /// Target URL (verified)
@@ -89,19 +93,26 @@ pub struct HttpRequest {
 pub struct PolicyHttp<'a> {
     // Lifetime ensures this can't outlive the Ctx
     _ctx_lifetime: std::marker::PhantomData<&'a ()>,
+    request_id: &'a str,
     // Recorded requests for testing/verification
     requests: RefCell<Vec<HttpRequest>>,
 }
 
 impl<'a> PolicyHttp<'a> {
-    /// Creates a new PolicyHttp.
+    /// Creates a new PolicyHttp with a request ID.
     ///
     /// This is `pub(crate)` - only `Ctx` can create it.
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(request_id: &'a str) -> Self {
         Self {
             _ctx_lifetime: std::marker::PhantomData,
+            request_id,
             requests: RefCell::new(Vec::new()),
         }
+    }
+
+    /// Returns the request ID associated with this HTTP client.
+    pub fn request_id(&self) -> &str {
+        self.request_id
     }
 
     /// Records an HTTP GET request.
@@ -182,6 +193,7 @@ impl<'a> PolicyHttp<'a> {
     /// Internal method to record a request.
     fn record_request(&self, method: HttpMethod, url: &Verified<String>, body: &Verified<String>) {
         let request = HttpRequest {
+            request_id: self.request_id.to_string(),
             method,
             url: url.as_ref().clone(),
             body_len: body.as_ref().len(),
@@ -248,13 +260,14 @@ mod tests {
 
     #[test]
     fn policy_http_records_get_request() {
-        let http = PolicyHttp::new();
+        let http = PolicyHttp::new("req-test-1");
         let url = Verified::new_unchecked("https://api.example.com/users".to_string());
 
         http.get(&url);
 
         assert_eq!(http.request_count(), 1);
         let requests = http.requests();
+        assert_eq!(requests[0].request_id, "req-test-1");
         assert_eq!(requests[0].method, HttpMethod::Get);
         assert_eq!(requests[0].url, "https://api.example.com/users");
         assert_eq!(requests[0].body_len, 0);
@@ -262,7 +275,7 @@ mod tests {
 
     #[test]
     fn policy_http_records_post_request() {
-        let http = PolicyHttp::new();
+        let http = PolicyHttp::new("req-test-2");
         let url = Verified::new_unchecked("https://api.example.com/users".to_string());
         let body = Verified::new_unchecked(r#"{"name": "Alice"}"#.to_string());
 
@@ -270,6 +283,7 @@ mod tests {
 
         assert_eq!(http.request_count(), 1);
         let requests = http.requests();
+        assert_eq!(requests[0].request_id, "req-test-2");
         assert_eq!(requests[0].method, HttpMethod::Post);
         assert_eq!(requests[0].url, "https://api.example.com/users");
         assert_eq!(requests[0].body_len, 17); // Length of JSON
@@ -277,7 +291,7 @@ mod tests {
 
     #[test]
     fn policy_http_records_multiple_requests() {
-        let http = PolicyHttp::new();
+        let http = PolicyHttp::new("req-test-3");
         let url1 = Verified::new_unchecked("https://example.com/1".to_string());
         let url2 = Verified::new_unchecked("https://example.com/2".to_string());
         let body = Verified::new_unchecked("data".to_string());
@@ -288,6 +302,7 @@ mod tests {
 
         assert_eq!(http.request_count(), 3);
         let requests = http.requests();
+        assert_eq!(requests[0].request_id, "req-test-3");
         assert_eq!(requests[0].method, HttpMethod::Get);
         assert_eq!(requests[1].method, HttpMethod::Post);
         assert_eq!(requests[2].method, HttpMethod::Delete);
@@ -295,7 +310,7 @@ mod tests {
 
     #[test]
     fn policy_http_enforces_verified_urls() {
-        let http = PolicyHttp::new();
+        let http = PolicyHttp::new("req-test-4");
 
         // This works - verified URL:
         let verified_url = Verified::new_unchecked("https://example.com".to_string());
@@ -311,7 +326,7 @@ mod tests {
 
     #[test]
     fn policy_http_with_sanitizer_integration() {
-        let http = PolicyHttp::new();
+        let http = PolicyHttp::new("req-test-5");
         let sanitizer = StringSanitizer::new(256);
 
         // Sanitize tainted URL
@@ -326,38 +341,41 @@ mod tests {
 
         let requests = http.requests();
         assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].request_id, "req-test-5");
         assert_eq!(requests[0].url, "https://api.example.com/data"); // Trimmed
         assert_eq!(requests[0].body_len, 16);
     }
 
     #[test]
     fn policy_http_records_put_request() {
-        let http = PolicyHttp::new();
+        let http = PolicyHttp::new("req-test-6");
         let url = Verified::new_unchecked("https://api.example.com/users/1".to_string());
         let body = Verified::new_unchecked(r#"{"name": "Bob"}"#.to_string());
 
         http.put(&url, &body);
 
         let requests = http.requests();
+        assert_eq!(requests[0].request_id, "req-test-6");
         assert_eq!(requests[0].method, HttpMethod::Put);
         assert_eq!(requests[0].url, "https://api.example.com/users/1");
     }
 
     #[test]
     fn policy_http_records_patch_request() {
-        let http = PolicyHttp::new();
+        let http = PolicyHttp::new("req-test-7");
         let url = Verified::new_unchecked("https://api.example.com/users/1".to_string());
         let body = Verified::new_unchecked(r#"{"status": "active"}"#.to_string());
 
         http.patch(&url, &body);
 
         let requests = http.requests();
+        assert_eq!(requests[0].request_id, "req-test-7");
         assert_eq!(requests[0].method, HttpMethod::Patch);
     }
 
     #[test]
     fn policy_http_does_not_leak_body_in_metadata() {
-        let http = PolicyHttp::new();
+        let http = PolicyHttp::new("req-test-8");
         let url = Verified::new_unchecked("https://api.example.com".to_string());
         let secret_body = Verified::new_unchecked("SECRET_PASSWORD_12345".to_string());
 
@@ -365,6 +383,7 @@ mod tests {
 
         let requests = http.requests();
         // Metadata should only contain length, not the actual body
+        assert_eq!(requests[0].request_id, "req-test-8");
         assert_eq!(requests[0].body_len, 21);
 
         // The debug output of HttpRequest should not contain the body content

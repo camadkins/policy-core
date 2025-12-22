@@ -7,23 +7,32 @@ use std::fmt;
 ///
 /// Secret values are automatically redacted when logged due to
 /// their `Debug` and `Display` implementations.
+///
+/// All log messages automatically include the request ID for tracing.
 #[derive(Debug)]
 pub struct PolicyLog<'a> {
     // Lifetime ensures this can't outlive the Ctx
     _ctx_lifetime: std::marker::PhantomData<&'a ()>,
+    request_id: &'a str,
 }
 
 impl<'a> PolicyLog<'a> {
-    /// Creates a new PolicyLog.
+    /// Creates a new PolicyLog with a request ID.
     ///
     /// This is `pub(crate)` - only `Ctx` can create it.
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(request_id: &'a str) -> Self {
         Self {
             _ctx_lifetime: std::marker::PhantomData,
+            request_id,
         }
     }
 
-    /// Logs an info-level message.
+    /// Returns the request ID associated with this logger.
+    pub fn request_id(&self) -> &str {
+        self.request_id
+    }
+
+    /// Logs an info-level message with request ID.
     ///
     /// Use with `format_args!` for efficient formatting:
     /// ```no_run
@@ -34,21 +43,21 @@ impl<'a> PolicyLog<'a> {
     /// # }
     /// ```
     pub fn info(&self, args: fmt::Arguments<'_>) {
-        tracing::info!("{}", args);
+        tracing::info!(request_id = %self.request_id, "{}", args);
     }
 
-    /// Logs a warning-level message.
+    /// Logs a warning-level message with request ID.
     pub fn warn(&self, args: fmt::Arguments<'_>) {
-        tracing::warn!("{}", args);
+        tracing::warn!(request_id = %self.request_id, "{}", args);
     }
 
-    /// Logs an error-level message.
+    /// Logs an error-level message with request ID.
     pub fn error(&self, args: fmt::Arguments<'_>) {
-        tracing::error!("{}", args);
+        tracing::error!(request_id = %self.request_id, "{}", args);
     }
 
-    /// Logs a debug-level message.
+    /// Logs a debug-level message with request ID.
     pub fn debug(&self, args: fmt::Arguments<'_>) {
-        tracing::debug!("{}", args);
+        tracing::debug!(request_id = %self.request_id, "{}", args);
     }
 }
