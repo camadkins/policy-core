@@ -25,6 +25,7 @@ use std::fmt;
 /// // But you CANNOT use the value directly:
 /// // let query = format!("SELECT * FROM users WHERE name = '{}'", user_input); // Won't compile!
 /// ```
+#[derive(Clone)]
 pub struct Tainted<T> {
     inner: T,
 }
