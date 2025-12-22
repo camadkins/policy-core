@@ -1,5 +1,5 @@
 use crate::{
-    capability::LogCap,
+    capability::{HttpCap, LogCap},
     context::Ctx,
     error::{Violation, ViolationKind},
     policy::PolicyReq,
@@ -121,8 +121,14 @@ impl PolicyGate {
             None
         };
 
+        let http_cap = if self.requires_authorization("http") {
+            Some(HttpCap::new())
+        } else {
+            None
+        };
+
         // 3. Build Ctx using existing pub(crate) constructor
-        Ok(Ctx::new_unchecked(self.meta.request_id, log_cap))
+        Ok(Ctx::new_unchecked(self.meta.request_id, log_cap, http_cap))
     }
 
     /// Check that all configured policy requirements are satisfied.

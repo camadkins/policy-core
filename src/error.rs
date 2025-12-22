@@ -111,6 +111,8 @@ pub enum ViolationKind {
     },
     /// Logging capability was not granted
     MissingLogCapability,
+    /// HTTP capability was not granted
+    MissingHttpCapability,
 }
 
 impl fmt::Display for ViolationKind {
@@ -130,12 +132,17 @@ impl fmt::Display for ViolationKind {
     ///     format!("{}", ViolationKind::MissingLogCapability),
     ///     "Missing logging capability"
     /// );
+    /// assert_eq!(
+    ///     format!("{}", ViolationKind::MissingHttpCapability),
+    ///     "Missing HTTP capability"
+    /// );
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ViolationKind::Unauthenticated => write!(f, "Unauthenticated"),
             ViolationKind::Unauthorized { action } => write!(f, "Unauthorized for '{}'", action),
             ViolationKind::MissingLogCapability => write!(f, "Missing logging capability"),
+            ViolationKind::MissingHttpCapability => write!(f, "Missing HTTP capability"),
         }
     }
 }
