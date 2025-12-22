@@ -1,7 +1,7 @@
 /// Metadata about an incoming request or operation.
 ///
 /// Contains the request identifier and optional principal (authenticated user/service).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RequestMeta {
     /// Unique identifier for this request
     pub request_id: String,
@@ -10,7 +10,7 @@ pub struct RequestMeta {
 }
 
 /// An authenticated user or service principal.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Principal {
     /// Unique identifier for this principal
     pub id: String,
