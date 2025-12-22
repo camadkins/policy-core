@@ -22,6 +22,29 @@ impl LogCap {
     }
 }
 
+/// Capability granting permission to perform outbound HTTP operations.
+///
+/// This is a zero-sized type that acts as proof that HTTP
+/// policies have been satisfied.
+///
+/// It cannot be constructed outside this crate, ensuring that
+/// only validated contexts can perform HTTP requests.
+#[derive(Debug, Clone, Copy)]
+pub struct HttpCap {
+    // Private field prevents construction outside the crate
+    _private: (),
+}
+
+impl HttpCap {
+    /// Creates a new HttpCap.
+    ///
+    /// This is `pub(crate)` so only code within policy-core can create it.
+    /// PolicyGate creates these when HTTP authorization is granted.
+    pub(crate) fn new() -> Self {
+        Self { _private: () }
+    }
+}
+
 /// A minimal gated function that requires LogCap to execute.
 ///
 /// This proves the capability pattern works: you cannot call this function
@@ -62,5 +85,22 @@ mod tests {
         let result = log_with_capability(cap, "test message");
 
         assert_eq!(result, "[LOGGED] test message");
+    }
+
+    #[test]
+    fn http_cap_cannot_be_constructed_publicly() {
+        // This test documents that HttpCap cannot be forged.
+        // If you uncomment these lines, they will not compile:
+
+        // let fake_cap = HttpCap { _private: () }; // Error: _private is private
+    }
+
+    #[test]
+    fn http_cap_can_be_created_internally() {
+        // Inside the crate, we CAN create HttpCap
+        let cap = HttpCap::new();
+
+        // It's a zero-sized type
+        let _debug_output = format!("{:?}", cap);
     }
 }

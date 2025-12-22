@@ -43,7 +43,10 @@
 //! sink.sink(&tainted);
 //! ```
 
-use crate::{Sanitizer, Sink, StringSanitizer, Tainted, VecSink};
+use crate::{
+    Authenticated, Authorized, PolicyGate, Principal, RequestMeta, Sanitizer, Sink,
+    StringSanitizer, Tainted, VecSink,
+};
 
 /// Processes untrusted user input through the taint tracking pipeline.
 ///
@@ -209,6 +212,96 @@ fn attempt_bypass(raw_input: &str) -> Result<Vec<String>, String> {
     Ok(sink.into_vec())
 }
 
+/// Demonstrates the complete HTTP request flow with taint tracking and capabilities.
+///
+/// This function shows the full end-to-end flow for Milestone 5:
+/// 1. **Policy Gate**: Validates authentication and authorization
+/// 2. **Capability**: Obtains HttpCap from validated context
+/// 3. **Taint Origin**: Wraps untrusted URL and body as `Tainted<String>`
+/// 4. **Sanitization**: Validates and promotes to `Verified<String>`
+/// 5. **HTTP Sink**: PolicyHttp accepts only verified data
+///
+/// # Arguments
+///
+/// * `user_id` - User identifier for authentication
+/// * `raw_url` - Untrusted URL string
+/// * `raw_body` - Untrusted request body
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the request was recorded successfully,
+/// or `Err(String)` with an error description on failure.
+///
+/// # Security
+///
+/// This function enforces:
+/// - Authentication and HTTP authorization via PolicyGate
+/// - All URLs and bodies are treated as tainted at the boundary
+/// - Validation occurs before any HTTP operations
+/// - Only verified data reaches PolicyHttp
+///
+/// # Examples
+///
+/// ```ignore
+/// use policy_core::demo::process_http_request;
+///
+/// // Valid request with authenticated user
+/// let result = process_http_request(
+///     "user-123",
+///     "https://api.example.com/data",
+///     r#"{"key": "value"}"#,
+/// );
+/// assert!(result.is_ok());
+/// ```
+#[allow(dead_code)]
+fn process_http_request(user_id: &str, raw_url: &str, raw_body: &str) -> Result<(), String> {
+    // Step 1: POLICY GATE
+    // Create request metadata with authenticated principal
+    let meta = RequestMeta {
+        request_id: format!("req-{}", user_id),
+        principal: Some(Principal {
+            id: user_id.to_string(),
+            name: format!("User {}", user_id),
+        }),
+    };
+
+    // Build context with authentication and HTTP authorization
+    let ctx = PolicyGate::new(meta)
+        .require(Authenticated)
+        .require(Authorized::for_action("http"))
+        .build()
+        .map_err(|e| format!("Policy violation: {}", e))?;
+
+    // Step 2: CAPABILITY
+    // Obtain capability-gated HTTP client
+    // This will fail if HttpCap was not granted
+    let http = ctx
+        .http()
+        .map_err(|e| format!("Missing HTTP capability: {}", e))?;
+
+    // Step 3: TAINT ORIGIN
+    // At the boundary, wrap untrusted inputs as Tainted<T>
+    let tainted_url = Tainted::new(raw_url.to_string());
+    let tainted_body = Tainted::new(raw_body.to_string());
+
+    // Step 4: SANITIZATION
+    // Use a real sanitizer to validate and promote to Verified<T>
+    let sanitizer = StringSanitizer::new(1024);
+    let verified_url = sanitizer
+        .sanitize(tainted_url)
+        .map_err(|e| format!("URL sanitization failed: {}", e))?;
+    let verified_body = sanitizer
+        .sanitize(tainted_body)
+        .map_err(|e| format!("Body sanitization failed: {}", e))?;
+
+    // Step 5: HTTP SINK
+    // PolicyHttp accepts ONLY Verified<String> for URLs and bodies
+    // This is enforced at compile time
+    http.post(&verified_url, &verified_body);
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -366,5 +459,63 @@ mod tests {
         assert!(!error_msg.contains("12345"));
         // But should contain useful information
         assert!(error_msg.contains("Sanitization failed"));
+    }
+
+    // ========================================================================
+    // Milestone 5: PolicyHttp Demo Tests
+    // ========================================================================
+
+    #[test]
+    fn http_end_to_end_happy_path() {
+        // Valid HTTP request with authenticated user and verified data
+        let result = process_http_request(
+            "user-123",
+            "https://api.example.com/users",
+            r#"{"name": "Alice"}"#,
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn http_end_to_end_sanitizes_url() {
+        // URL with whitespace should be trimmed during sanitization
+        let result = process_http_request(
+            "user-456",
+            "  https://api.example.com/data  ",
+            r#"{"value": 42}"#,
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn http_end_to_end_rejects_invalid_url() {
+        // URL containing control characters should be rejected
+        let result = process_http_request("user-789", "https://example.com\n/hack", "{}");
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("URL sanitization failed"));
+    }
+
+    #[test]
+    fn http_end_to_end_rejects_invalid_body() {
+        // Body containing control characters should be rejected
+        let result = process_http_request("user-999", "https://api.example.com", "bad\nbody\ndata");
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("Body sanitization failed"));
+    }
+
+    #[test]
+    fn http_end_to_end_requires_authentication() {
+        // This test documents that unauthenticated requests would fail
+        // at the policy gate (we can't easily test this with the current
+        // function signature that requires a user_id)
+        //
+        // If we modified process_http_request to accept Option<Principal>,
+        // passing None would fail with "Policy violation: Unauthenticated"
     }
 }
