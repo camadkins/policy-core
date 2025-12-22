@@ -113,6 +113,8 @@ pub enum ViolationKind {
     MissingLogCapability,
     /// HTTP capability was not granted
     MissingHttpCapability,
+    /// Audit capability was not granted
+    MissingAuditCapability,
 }
 
 impl fmt::Display for ViolationKind {
@@ -143,6 +145,7 @@ impl fmt::Display for ViolationKind {
             ViolationKind::Unauthorized { action } => write!(f, "Unauthorized for '{}'", action),
             ViolationKind::MissingLogCapability => write!(f, "Missing logging capability"),
             ViolationKind::MissingHttpCapability => write!(f, "Missing HTTP capability"),
+            ViolationKind::MissingAuditCapability => write!(f, "Missing audit capability"),
         }
     }
 }

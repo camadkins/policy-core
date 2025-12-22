@@ -44,6 +44,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod audit;
 mod capability;
 mod context;
 mod demo;
