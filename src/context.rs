@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use crate::audit::{AuditCap, PolicyAudit};
 use crate::capability::{HttpCap, LogCap};
 use crate::error::{Violation, ViolationKind};
 use crate::http::PolicyHttp;
@@ -58,6 +59,7 @@ pub struct Ctx<S = Authorized> {
     principal: Option<Principal>,
     log_cap: Option<LogCap>,
     http_cap: Option<HttpCap>,
+    audit_cap: Option<AuditCap>,
     _state: PhantomData<S>,
 }
 
@@ -95,6 +97,7 @@ impl Ctx<Unauthed> {
             principal: None,
             log_cap: None,
             http_cap: None,
+            audit_cap: None,
             _state: PhantomData,
         }
     }
@@ -130,6 +133,7 @@ impl Ctx<Unauthed> {
                 principal: Some(p),
                 log_cap: None,
                 http_cap: None,
+                audit_cap: None,
                 _state: PhantomData,
             })
         } else {
@@ -156,19 +160,26 @@ impl Ctx<Authed> {
     ///
     /// * `log_cap` - Optional logging capability
     /// * `http_cap` - Optional HTTP capability
+    /// * `audit_cap` - Optional audit capability
     ///
     /// # Examples
     ///
     /// ```ignore
     /// // Assuming we have a Ctx<Authed>:
-    /// let authorized_ctx = authed_ctx.authorize(Some(LogCap::new()), None);
+    /// let authorized_ctx = authed_ctx.authorize(Some(LogCap::new()), None, None);
     /// ```
-    pub fn authorize(self, log_cap: Option<LogCap>, http_cap: Option<HttpCap>) -> Ctx<Authorized> {
+    pub fn authorize(
+        self,
+        log_cap: Option<LogCap>,
+        http_cap: Option<HttpCap>,
+        audit_cap: Option<AuditCap>,
+    ) -> Ctx<Authorized> {
         Ctx {
             request_id: self.request_id,
             principal: self.principal,
             log_cap,
             http_cap,
+            audit_cap,
             _state: PhantomData,
         }
     }
@@ -197,6 +208,7 @@ impl Ctx<Authorized> {
             principal: None,
             log_cap,
             http_cap,
+            audit_cap: None,
             _state: PhantomData,
         }
     }
@@ -210,12 +222,14 @@ impl Ctx<Authorized> {
         principal: Option<Principal>,
         log_cap: Option<LogCap>,
         http_cap: Option<HttpCap>,
+        audit_cap: Option<AuditCap>,
     ) -> Self {
         Self {
             request_id,
             principal,
             log_cap,
             http_cap,
+            audit_cap,
             _state: PhantomData,
         }
     }
@@ -234,6 +248,14 @@ impl Ctx<Authorized> {
     /// `None` otherwise.
     pub fn http_cap(&self) -> Option<HttpCap> {
         self.http_cap
+    }
+
+    /// Returns the audit capability if present.
+    ///
+    /// Returns `Some(AuditCap)` if audit policies were satisfied,
+    /// `None` otherwise.
+    pub fn audit_cap(&self) -> Option<AuditCap> {
+        self.audit_cap
     }
 
     /// Returns a capability-gated logger.
@@ -307,6 +329,48 @@ impl Ctx<Authorized> {
             Err(Violation::new(
                 ViolationKind::MissingHttpCapability,
                 "HTTP capability not granted",
+            ))
+        }
+    }
+
+    /// Returns a capability-gated audit event emitter.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err(Violation)` if `AuditCap` was not granted.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use policy_core::{PolicyGate, RequestMeta, Principal, Authenticated, Authorized};
+    /// # use policy_core::audit::{AuditEvent, AuditEventKind, AuditOutcome};
+    /// # let meta = RequestMeta {
+    /// #     request_id: "req-1".to_string(),
+    /// #     principal: Some(Principal { id: "u1".to_string(), name: "Admin".to_string() }),
+    /// # };
+    /// # let ctx = PolicyGate::new(meta)
+    /// #     .require(Authenticated)
+    /// #     .require(Authorized::for_action("audit"))
+    /// #     .build()
+    /// #     .unwrap();
+    /// let audit = ctx.audit().expect("AuditCap required");
+    ///
+    /// let event = AuditEvent::new(
+    ///     ctx.request_id(),
+    ///     ctx.principal().map(|p| &p.name),
+    ///     AuditEventKind::AdminAction,
+    ///     AuditOutcome::Success,
+    /// );
+    ///
+    /// audit.emit(&event);
+    /// ```
+    pub fn audit(&self) -> Result<PolicyAudit<'_>, Violation> {
+        if self.audit_cap.is_some() {
+            Ok(PolicyAudit::new())
+        } else {
+            Err(Violation::new(
+                ViolationKind::MissingAuditCapability,
+                "Audit capability not granted",
             ))
         }
     }
@@ -418,12 +482,13 @@ mod tests {
         };
 
         let authed_ctx = ctx.authenticate(Some(principal)).unwrap();
-        let authorized_ctx = authed_ctx.authorize(Some(LogCap::new()), Some(HttpCap::new()));
+        let authorized_ctx = authed_ctx.authorize(Some(LogCap::new()), Some(HttpCap::new()), None);
 
         assert_eq!(authorized_ctx.request_id(), "req-authz");
         assert!(authorized_ctx.principal().is_some());
         assert!(authorized_ctx.log_cap().is_some());
         assert!(authorized_ctx.http_cap().is_some());
+        assert!(authorized_ctx.audit_cap().is_none());
     }
 
     #[test]
@@ -439,10 +504,11 @@ mod tests {
         let authed = unauthed.authenticate(Some(principal)).unwrap();
         assert!(authed.principal().is_some());
 
-        let authorized = authed.authorize(Some(LogCap::new()), None);
+        let authorized = authed.authorize(Some(LogCap::new()), None, None);
         assert!(authorized.principal().is_some());
         assert!(authorized.log_cap().is_some());
         assert!(authorized.http_cap().is_none());
+        assert!(authorized.audit_cap().is_none());
     }
 
     #[test]
@@ -454,6 +520,7 @@ mod tests {
                 name: "Dana".to_string(),
             }),
             Some(LogCap::new()),
+            None,
             None,
         );
 
@@ -470,8 +537,40 @@ mod tests {
             }),
             None,
             Some(HttpCap::new()),
+            None,
         );
 
         assert!(ctx.http().is_ok());
+    }
+
+    #[test]
+    fn authorized_ctx_can_access_audit() {
+        let ctx = Ctx::new_authorized(
+            "req-audit".to_string(),
+            Some(Principal {
+                id: "user-6".to_string(),
+                name: "Frank".to_string(),
+            }),
+            None,
+            None,
+            Some(AuditCap::new()),
+        );
+
+        assert!(ctx.audit().is_ok());
+    }
+
+    #[test]
+    fn ctx_audit_requires_capability() {
+        let ctx_with_cap =
+            Ctx::new_authorized("req-1".to_string(), None, None, None, Some(AuditCap::new()));
+        assert!(ctx_with_cap.audit().is_ok());
+
+        let ctx_without_cap = Ctx::new_unchecked("req-2".to_string(), None, None);
+        let result = ctx_without_cap.audit();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().kind,
+            ViolationKind::MissingAuditCapability
+        );
     }
 }

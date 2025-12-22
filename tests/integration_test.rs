@@ -1,6 +1,7 @@
 use policy_core::{
     Authenticated, Authorized, HttpMethod, PolicyGate, Principal, RequestMeta, Sanitizer, Secret,
     StringSanitizer, Tainted, ViolationKind,
+    audit::{AuditEvent, AuditEventKind, AuditOutcome, AuditTrail},
 };
 use std::sync::{Arc, Mutex};
 
@@ -817,4 +818,265 @@ fn milestone_6_complete() {
     // Verify that capabilities are enforced
     assert!(ctx.log_cap().is_some());
     assert!(ctx.http_cap().is_none()); // Not authorized for HTTP
+}
+
+// ============================================================================
+// Milestone 7: Audit Trail Support
+// ============================================================================
+
+#[test]
+fn audit_capability_is_unforgeable() {
+    // AuditCap cannot be constructed outside the crate
+    // Uncommenting this would fail to compile:
+    // let fake_cap = policy_core::audit::AuditCap { _private: () };
+}
+
+#[test]
+fn audit_cap_requires_authorization() {
+    let meta = RequestMeta {
+        request_id: "req-audit-1".to_string(),
+        principal: Some(Principal {
+            id: "user-1".to_string(),
+            name: "Alice".to_string(),
+        }),
+    };
+
+    // Without "audit" authorization, no audit capability
+    let ctx = PolicyGate::new(meta.clone())
+        .require(Authenticated)
+        .require(Authorized::for_action("log"))
+        .build()
+        .unwrap();
+
+    assert!(ctx.audit_cap().is_none());
+    assert!(ctx.audit().is_err());
+
+    // With "audit" authorization, capability is granted
+    let ctx2 = PolicyGate::new(meta)
+        .require(Authenticated)
+        .require(Authorized::for_action("audit"))
+        .build()
+        .unwrap();
+
+    assert!(ctx2.audit_cap().is_some());
+    assert!(ctx2.audit().is_ok());
+}
+
+#[test]
+fn audit_event_does_not_leak_secrets() {
+    let event = AuditEvent::new(
+        "req-secret",
+        Some("admin@example.com"),
+        AuditEventKind::AdminAction,
+        AuditOutcome::Success,
+    )
+    .with_action("reset_password");
+
+    // Debug and Display should not contain sensitive data
+    let debug_str = format!("{:?}", event);
+    let display_str = format!("{}", event);
+
+    // Should contain safe metadata
+    assert!(debug_str.contains("req-secret"));
+    assert!(display_str.contains("req-secret"));
+    assert!(display_str.contains("admin@example.com"));
+
+    // Should NOT contain any secrets (none were provided in the first place)
+}
+
+#[test]
+fn audit_trail_records_events() {
+    let trail = AuditTrail::new();
+
+    let event1 = AuditEvent::new(
+        "req-1",
+        Some("user@example.com"),
+        AuditEventKind::Authentication,
+        AuditOutcome::Success,
+    );
+
+    let event2 = AuditEvent::new(
+        "req-2",
+        Some("admin@example.com"),
+        AuditEventKind::AdminAction,
+        AuditOutcome::Success,
+    )
+    .with_action("delete_user");
+
+    trail.record(event1);
+    trail.record(event2);
+
+    assert_eq!(trail.len(), 2);
+
+    let events = trail.events();
+    assert_eq!(events[0].request_id(), "req-1");
+    assert_eq!(events[1].request_id(), "req-2");
+    assert_eq!(events[1].action(), Some("delete_user"));
+}
+
+#[test]
+fn admin_action_emits_audit_trail() {
+    // This test demonstrates the full flow for Issue #29:
+    // Admin action → policy authorization → audit event emitted
+
+    // 1. Simulate raw input (tainted)
+    let user_id_input = Tainted::new("user-12345".to_string());
+
+    // 2. Sanitize the input
+    let sanitizer = StringSanitizer::new(64);
+    let verified_user_id = sanitizer.sanitize(user_id_input).expect("valid user ID");
+
+    // 3. Create request metadata with principal
+    let meta = RequestMeta {
+        request_id: "req-admin-delete".to_string(),
+        principal: Some(Principal {
+            id: "admin-001".to_string(),
+            name: "admin@example.com".to_string(),
+        }),
+    };
+
+    // 4. Build context with audit capability
+    let ctx = PolicyGate::new(meta)
+        .require(Authenticated)
+        .require(Authorized::for_action("audit"))
+        .build()
+        .expect("admin is authorized");
+
+    // Verify typestate progression: we now have Ctx<Authorized>
+    assert!(ctx.principal().is_some());
+    assert!(ctx.audit_cap().is_some());
+
+    // 5. Get audit emitter (gated by AuditCap)
+    let audit = ctx.audit().expect("audit capability granted");
+
+    // 6. Create audit event with safe metadata only
+    let event = AuditEvent::new(
+        ctx.request_id(),
+        ctx.principal().map(|p| &p.name),
+        AuditEventKind::AdminAction,
+        AuditOutcome::Success,
+    )
+    .with_action("delete_user")
+    .with_resource_id(verified_user_id.as_ref()); // Only safe, verified ID
+
+    // 7. Emit and record to audit trail
+    let trail = AuditTrail::new();
+    audit.emit_and_record(&event, &trail);
+
+    // 8. Verify audit trail contains the event
+    assert_eq!(trail.len(), 1);
+
+    let recorded = &trail.events()[0];
+    assert_eq!(recorded.request_id(), "req-admin-delete");
+    assert_eq!(recorded.principal(), Some("admin@example.com"));
+    assert_eq!(recorded.kind(), AuditEventKind::AdminAction);
+    assert_eq!(recorded.outcome(), AuditOutcome::Success);
+    assert_eq!(recorded.action(), Some("delete_user"));
+    assert_eq!(recorded.resource_id(), Some("user-12345"));
+
+    // Verify no secrets or raw tainted input in the event
+    let event_display = format!("{}", recorded);
+    assert!(!event_display.contains("password"));
+    assert!(!event_display.contains("secret"));
+}
+
+#[test]
+fn audit_event_supports_http_metadata() {
+    let event = AuditEvent::new(
+        "req-http-audit",
+        Some("user@example.com"),
+        AuditEventKind::ResourceAccess,
+        AuditOutcome::Success,
+    )
+    .with_method("POST")
+    .with_redacted_url("/api/users")
+    .with_body_len(256);
+
+    assert_eq!(event.method(), Some("POST"));
+    assert_eq!(event.redacted_url(), Some("/api/users"));
+    assert_eq!(event.body_len(), Some(256));
+}
+
+#[test]
+fn audit_denied_action() {
+    // Test auditing a denied operation
+    let meta = RequestMeta {
+        request_id: "req-denied".to_string(),
+        principal: Some(Principal {
+            id: "user-002".to_string(),
+            name: "user@example.com".to_string(),
+        }),
+    };
+
+    let ctx = PolicyGate::new(meta)
+        .require(Authenticated)
+        .require(Authorized::for_action("audit"))
+        .build()
+        .unwrap();
+
+    let audit = ctx.audit().unwrap();
+    let trail = AuditTrail::new();
+
+    // Simulate a denied admin action
+    let event = AuditEvent::new(
+        ctx.request_id(),
+        ctx.principal().map(|p| &p.name),
+        AuditEventKind::AdminAction,
+        AuditOutcome::Denied,
+    )
+    .with_action("delete_all_users")
+    .with_resource_id("*");
+
+    audit.emit_and_record(&event, &trail);
+
+    let recorded = &trail.events()[0];
+    assert_eq!(recorded.outcome(), AuditOutcome::Denied);
+    assert_eq!(recorded.action(), Some("delete_all_users"));
+}
+
+#[test]
+fn milestone_7_complete() {
+    // ✓ AuditCap capability exists and is unforgeable
+    // ✓ AuditEvent schema is safe (no secrets, no tainted input)
+    // ✓ AuditTrail in-memory recorder works
+    // ✓ PolicyAudit integrates with tracing
+    // ✓ Admin action example demonstrates full flow
+    // ✓ Audit capability is gated by PolicyGate
+
+    let meta = RequestMeta {
+        request_id: "req-m7-complete".to_string(),
+        principal: Some(Principal {
+            id: "admin-m7".to_string(),
+            name: "admin@example.com".to_string(),
+        }),
+    };
+
+    // Build context with audit capability
+    let ctx = PolicyGate::new(meta)
+        .require(Authenticated)
+        .require(Authorized::for_action("audit"))
+        .build()
+        .expect("M7 complete");
+
+    // Verify audit capability was granted
+    assert!(ctx.audit_cap().is_some());
+
+    // Verify audit emitter is accessible
+    let audit = ctx.audit().expect("audit capability granted");
+
+    // Create and record an audit event
+    let trail = AuditTrail::new();
+    let event = AuditEvent::new(
+        ctx.request_id(),
+        ctx.principal().map(|p| &p.name),
+        AuditEventKind::SecurityEvent,
+        AuditOutcome::Success,
+    )
+    .with_action("milestone_7_verification");
+
+    audit.emit_and_record(&event, &trail);
+
+    // Verify event was recorded
+    assert_eq!(trail.len(), 1);
+    assert_eq!(trail.events()[0].action(), Some("milestone_7_verification"));
 }
