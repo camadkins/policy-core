@@ -130,4 +130,10 @@ jobs:
           key: ${{ runner.os }}-dylint-build-${{ hashFiles('dylint/**/Cargo.lock', 'dylint/**/Cargo.toml') }}
 
       - name: Run enforcement pack lints
-        run: cargo dylint --all --workspace
+        run: |
+          NIGHTLY_SYSROOT=$(rustc +nightly --print sysroot)
+          export LD_LIBRARY_PATH="${NIGHTLY_SYSROOT}/lib:${LD_LIBRARY_PATH}"
+          cargo dylint --all --workspace
+        env:
+          CARGO_HOME: /home/runner/.cargo
+          CARGO_INCREMENTAL: 0
