@@ -133,6 +133,8 @@ jobs:
         run: |
           NIGHTLY_SYSROOT=$(rustc +nightly --print sysroot)
           export LD_LIBRARY_PATH="${NIGHTLY_SYSROOT}/lib:${LD_LIBRARY_PATH}"
+          export LIBRARY_PATH="${NIGHTLY_SYSROOT}/lib:${LIBRARY_PATH}"
+          export RUSTFLAGS="-C link-arg=-L${NIGHTLY_SYSROOT}/lib ${RUSTFLAGS}"
           cargo dylint --all --workspace
         env:
           CARGO_HOME: /home/runner/.cargo
