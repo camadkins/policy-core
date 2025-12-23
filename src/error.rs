@@ -99,6 +99,15 @@ impl fmt::Display for Violation {
 
 impl std::error::Error for Violation {}
 
+impl From<crate::SanitizationError> for Violation {
+    fn from(err: crate::SanitizationError) -> Self {
+        Violation::new(
+            ViolationKind::Unauthenticated,
+            format!("Sanitization failed: {}", err),
+        )
+    }
+}
+
 /// The kind of policy violation.
 #[derive(Debug, PartialEq)]
 pub enum ViolationKind {

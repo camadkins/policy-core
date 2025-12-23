@@ -281,11 +281,11 @@ impl Ctx<Authorized> {
     ///
     /// let secret = Secret::new("password123");
     /// logger.info(format_args!("User logged in: {:?}", secret));
-    /// // Logs: "User logged in: [REDACTED]"
+    /// // Logs: "User logged in: [REDACTED]" (with request_id included)
     /// ```
     pub fn log(&self) -> Result<PolicyLog<'_>, Violation> {
         if self.log_cap.is_some() {
-            Ok(PolicyLog::new())
+            Ok(PolicyLog::new(&self.request_id))
         } else {
             Err(Violation::new(
                 ViolationKind::MissingLogCapability,
@@ -324,7 +324,7 @@ impl Ctx<Authorized> {
     /// ```
     pub fn http(&self) -> Result<PolicyHttp<'_>, Violation> {
         if self.http_cap.is_some() {
-            Ok(PolicyHttp::new())
+            Ok(PolicyHttp::new(&self.request_id))
         } else {
             Err(Violation::new(
                 ViolationKind::MissingHttpCapability,

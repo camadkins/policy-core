@@ -60,6 +60,7 @@ mod sink;
 mod state;
 mod tainted;
 mod verified;
+pub mod web;
 
 pub use capability::{HttpCap, LogCap, log_with_capability};
 pub use context::Ctx;

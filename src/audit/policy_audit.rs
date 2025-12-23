@@ -190,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn policy_audit_emits_without_capability_when_trail_missing() {
+    fn policy_audit_emit_works_without_trail() {
         // This test verifies that emit() can be called even when
         // no trail is provided (it just logs through tracing)
         let audit = PolicyAudit::new();
