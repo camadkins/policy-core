@@ -102,6 +102,27 @@ The crate includes `VecSink`, an in-memory sink for testing.
 * Compile errors prevent accidental misuse
 * Type invariants enforced through visibility (`pub(crate)` constructors)
 
+## Enforcement Pack (Static Analysis)
+
+The `dylint/` directory contains custom Dylint lints that enforce architectural invariants at compile time.
+
+**Purpose:** Prevent accidental bypass of capability gating, taint tracking, and explicit context patterns (see `ARCHITECT.local.md`).
+
+**Run locally:**
+
+```bash
+cargo install cargo-dylint dylint-link
+cargo dylint --all --workspace
+```
+
+**CI:** Lints run automatically on every PR. Deny-level violations fail the build.
+
+**Documentation:** See [`dylint/README.md`](dylint/README.md) for:
+- Enforcement philosophy and scope
+- Implemented lints and future work
+- Suppression policy (strict, auditable exceptions only)
+- Reviewer guidance for policy-affecting changes
+
 ## Dependencies
 
 `policy-core` keeps dependencies minimal:
@@ -149,13 +170,16 @@ The sanitizer trims whitespace, rejects empty strings, blocks control characters
 * Milestone 3: Capability-gated logging with secret redaction
 * Milestone 4: Taint tracking (`Verified<T>`, `Sanitizer`, `Sink`)
 * Milestone 5: End-to-end demo with in-memory sink
+* Milestone 6: Type-state contexts (`Ctx<Unauthed>` → `Ctx<Authed>` → `Ctx<Authorized>`)
+* Milestone 7: Audit trail support (`AuditCap`, structured events)
+* Milestone 8: Web framework integration (Axum extractors, middleware)
+* Milestone 9: Enforcement pack infrastructure (Dylint lints, CI integration)
 
-**Planned:**
+**In Progress:**
 
-* Type-state contexts (`Ctx<Unauthed>` → `Ctx<Authed>`)
-* Database and HTTP sink integrations
-* Web framework middleware (Axum/Actix)
-* Lint rules to detect policy bypass attempts
+* Policy-specific lints for `Verified<T>` forgeability prevention (Issue #38)
+* Taint bypass detection lints (Issue #39)
+* Forbidden sink detection lints (Issue #40)
 
 This is an experimental project. APIs are subject to change.
 
@@ -180,7 +204,7 @@ Contributions are accepted. Open an issue to discuss significant changes before 
 
 * Respect the core philosophy: explicit policies, no hidden conversions, compile-time safety where possible
 * Add tests for new sanitizers or sinks
-* Run `cargo fmt`, `cargo clippy --all-features -- -D warnings`, and `cargo test --all-features`
+* Run `cargo fmt`, `cargo clippy --all-features -- -D warnings`, `cargo test --all-features`, and `cargo dylint --all --workspace`
 * Document what guarantees do and do not exist
 
 ## License
