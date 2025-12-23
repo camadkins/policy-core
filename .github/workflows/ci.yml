@@ -107,7 +107,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install cargo-dylint and dylint-link
-        run: cargo install cargo-dylint dylint-link
+        run: |
+          cargo install cargo-dylint dylint-link
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -135,6 +137,7 @@ jobs:
           export LD_LIBRARY_PATH="${NIGHTLY_SYSROOT}/lib:${LD_LIBRARY_PATH}"
           export LIBRARY_PATH="${NIGHTLY_SYSROOT}/lib:${LIBRARY_PATH}"
           export RUSTFLAGS="-C link-arg=-L${NIGHTLY_SYSROOT}/lib ${RUSTFLAGS}"
+          export RUSTC_WORKSPACE_WRAPPER="$HOME/.cargo/bin/dylint-link"
           cargo dylint --all --workspace
         env:
           CARGO_HOME: /home/runner/.cargo
