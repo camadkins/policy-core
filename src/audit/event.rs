@@ -408,8 +408,6 @@ mod tests {
     /// sensitive data to audit events.
     #[test]
     fn audit_event_rejects_secret_types() {
-        use crate::Secret;
-
         // This compiles - AuditEvent accepts String and &str
         let _safe_event = AuditEvent::new(
             "req-safe",
@@ -422,6 +420,7 @@ mod tests {
 
         // The following would NOT compile if uncommented (type safety at work):
         //
+        // use crate::Secret;
         // let secret_password = Secret::new("password123");
         //
         // // This fails: Secret<String> does not implement Into<String>
@@ -444,10 +443,5 @@ mod tests {
         // Type safety prevents these mistakes at compile time.
         // Developers MUST explicitly call secret.expose() to bypass the wrapper,
         // making leakage intentional and visible in code review.
-
-        assert!(
-            true,
-            "Type-level guardrail prevents Secret<T> in audit events"
-        );
     }
 }

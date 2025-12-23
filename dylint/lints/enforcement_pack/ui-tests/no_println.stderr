@@ -1,0 +1,30 @@
+error: use of `println!` macro
+ --> $DIR/no_println.rs:4:5
+  |
+4 |     println!("This bypasses PolicyLog");
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: use `tracing::info!` or `PolicyLog` for structured logging
+  = note: `println!` bypasses capability gating and may leak secrets
+  = note: `-D enforcement-pack::no-println` implied by `-D warnings`
+
+error: use of `eprintln!` macro
+ --> $DIR/no_println.rs:8:5
+  |
+8 |     eprintln!("This also bypasses PolicyLog");
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: use `tracing::error!` or `PolicyLog` for structured logging
+  = note: `eprintln!` bypasses capability gating and may leak secrets
+
+error: use of `dbg!` macro
+  --> $DIR/no_println.rs:13:5
+   |
+13 |     dbg!(x);
+   |     ^^^^^^^^
+   |
+   = help: use `tracing::debug!` or `PolicyLog` for structured logging
+   = note: `dbg!` bypasses capability gating and may leak secrets
+
+error: aborting due to 3 previous errors
+
