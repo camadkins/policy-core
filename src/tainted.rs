@@ -100,4 +100,30 @@ mod tests {
 
         let _ = tainted_str;
     }
+
+    mod proptests {
+        use super::*;
+        use crate::{Sanitizer, sanitizer::StringSanitizer, test_utils::arb_valid_string};
+        use proptest::prelude::*;
+
+        proptest! {
+            /// Property: Cloning a Tainted value results in identical sanitization outcomes
+            #[test]
+            fn proptest_tainted_clone_preserves_value(input in arb_valid_string(256)) {
+                let sanitizer = StringSanitizer::new(256);
+
+                // Create tainted value and clone it
+                let tainted1 = Tainted::new(input.clone());
+                let tainted2 = tainted1.clone();
+
+                // Sanitize both
+                let verified1 = sanitizer.sanitize(tainted1).expect("valid input should pass");
+                let verified2 = sanitizer.sanitize(tainted2).expect("valid input should pass");
+
+                // Both should produce identical verified values
+                prop_assert_eq!(verified1.as_ref(), verified2.as_ref());
+                prop_assert_eq!(verified1.as_ref(), &input);
+            }
+        }
+    }
 }

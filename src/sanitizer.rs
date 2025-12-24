@@ -589,3 +589,157 @@ mod tests {
         let _sanitizer = StringSanitizer::new(0);
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use crate::test_utils::arb_valid_string;
+    use proptest::prelude::*;
+
+    // Strategy: Generate arbitrary printable strings
+    fn arb_printable_string() -> impl Strategy<Value = String> {
+        prop::string::string_regex("[\\x20-\\x7E]{0,500}").expect("valid regex for printable ASCII")
+    }
+
+    // Strategy: Generate strings with whitespace
+    fn arb_whitespace_string() -> impl Strategy<Value = String> {
+        prop::string::string_regex("[ \\t\\n\\r]{0,50}").expect("valid regex for whitespace")
+    }
+
+    // Strategy: Generate strings with control characters
+    fn arb_string_with_control_chars() -> impl Strategy<Value = String> {
+        prop::collection::vec(prop::char::range('\x00', '\x1F'), 1..10)
+            .prop_map(|chars| chars.into_iter().collect())
+    }
+
+    proptest! {
+        /// Property: Sanitizing an already-sanitized value is idempotent
+        #[test]
+        fn proptest_sanitizer_is_idempotent(input in arb_valid_string(256)) {
+            let sanitizer = StringSanitizer::new(256);
+            let tainted = Tainted::new(input);
+
+            // First sanitization
+            let verified1 = sanitizer.sanitize(tainted).unwrap();
+
+            // Second sanitization (on already verified value)
+            let tainted2 = Tainted::new(verified1.as_ref().to_string());
+            let verified2 = sanitizer.sanitize(tainted2).unwrap();
+
+            // Should be identical
+            prop_assert_eq!(verified1.as_ref(), verified2.as_ref());
+        }
+
+        /// Property: Sanitizer trims leading and trailing whitespace
+        #[test]
+        fn proptest_sanitizer_trims_leading_trailing_whitespace(
+            prefix in arb_whitespace_string(),
+            content in prop::string::string_regex("[a-zA-Z0-9]{1,50}").unwrap(),
+            suffix in arb_whitespace_string()
+        ) {
+            let input = format!("{}{}{}", prefix, content, suffix);
+            let sanitizer = StringSanitizer::new(256);
+            let tainted = Tainted::new(input);
+
+            if let Ok(verified) = sanitizer.sanitize(tainted) {
+                let result = verified.as_ref();
+                // Should have no leading or trailing whitespace
+                prop_assert_eq!(result, result.trim());
+                // Should still contain the original content
+                prop_assert!(result.contains(&content));
+            }
+        }
+
+        /// Property: Sanitizer preserves interior whitespace
+        #[test]
+        fn proptest_sanitizer_preserves_interior_whitespace(
+            word1 in prop::string::string_regex("[a-zA-Z]{1,10}").unwrap(),
+            word2 in prop::string::string_regex("[a-zA-Z]{1,10}").unwrap()
+        ) {
+            let input = format!("{}  {}", word1, word2);  // Two spaces
+            let sanitizer = StringSanitizer::new(256);
+            let tainted = Tainted::new(input);
+
+            if let Ok(verified) = sanitizer.sanitize(tainted) {
+                // Interior whitespace should be preserved
+                prop_assert!(verified.as_ref().contains("  "));
+            }
+        }
+
+        /// Property: Verified strings never exceed max_len
+        #[test]
+        fn proptest_sanitizer_never_exceeds_max_length(
+            input in arb_printable_string(),
+            max_len in 1usize..=256
+        ) {
+            let sanitizer = StringSanitizer::new(max_len);
+            let tainted = Tainted::new(input);
+
+            if let Ok(verified) = sanitizer.sanitize(tainted) {
+                prop_assert!(verified.as_ref().len() <= max_len);
+            }
+        }
+
+        /// Property: String at exactly max_len is accepted, max_len+1 is rejected
+        #[test]
+        fn proptest_sanitizer_boundary_at_max_length(max_len in 1usize..=100) {
+            let sanitizer = StringSanitizer::new(max_len);
+
+            // String of exactly max_len should be accepted
+            let exact_input = "a".repeat(max_len);
+            let tainted_exact = Tainted::new(exact_input.clone());
+            prop_assert!(sanitizer.sanitize(tainted_exact).is_ok());
+
+            // String of max_len + 1 should be rejected
+            let too_long_input = "a".repeat(max_len + 1);
+            let tainted_too_long = Tainted::new(too_long_input);
+            let result = sanitizer.sanitize(tainted_too_long);
+            prop_assert!(result.is_err());
+            if let Err(e) = result {
+                prop_assert!(matches!(e.kind, SanitizationErrorKind::TooLong));
+            }
+        }
+
+        /// Property: Sanitizer rejects strings with control characters
+        #[test]
+        fn proptest_sanitizer_rejects_control_chars(
+            control_chars in arb_string_with_control_chars(),
+            word1 in prop::string::string_regex("[a-zA-Z0-9]{1,10}").unwrap(),
+            word2 in prop::string::string_regex("[a-zA-Z0-9]{1,10}").unwrap()
+        ) {
+            // Put control chars in the middle so they won't be trimmed away
+            let input = format!("{}{}{}", word1, control_chars, word2);
+            let sanitizer = StringSanitizer::new(256);
+            let tainted = Tainted::new(input);
+
+            let result = sanitizer.sanitize(tainted);
+            prop_assert!(result.is_err());
+            if let Err(e) = result {
+                prop_assert!(matches!(e.kind, SanitizationErrorKind::ContainsControlChars));
+            }
+        }
+
+        /// Property: Error messages never leak the rejected input value
+        #[test]
+        fn proptest_sanitizer_errors_never_leak_input(
+            secret_value in prop::string::string_regex("[A-Z]{5,20}").unwrap()
+        ) {
+            // Create input that will definitely be rejected (contains control char)
+            // Use uppercase secret to avoid accidental matches with error message words
+            let bad_input = format!("USER_SECRET_{}\x00", secret_value);
+            let sanitizer = StringSanitizer::new(256);
+            let tainted = Tainted::new(bad_input.clone());
+
+            if let Err(error) = sanitizer.sanitize(tainted) {
+                let error_message = error.to_string();
+                // Error message should NOT contain the secret value we embedded
+                prop_assert!(
+                    !error_message.contains(&secret_value),
+                    "Error message '{}' should not contain secret '{}'",
+                    error_message,
+                    secret_value
+                );
+            }
+        }
+    }
+}
