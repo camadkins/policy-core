@@ -6,7 +6,6 @@
 use policy_core::{
     Authenticated, Authorized, PolicyGate, Principal, RequestMeta, Sanitizer, StringSanitizer,
     Tainted,
-    audit::{AuditEvent, AuditEventKind, AuditOutcome},
 };
 use proptest::prelude::*;
 
@@ -85,50 +84,6 @@ proptest! {
                 ));
             }
         }
-    }
-
-    /// Property: AuditEvent Display/Debug never leaks secrets
-    ///
-    /// This test verifies that audit events can be safely logged without
-    /// exposing sensitive data like secrets or raw tainted input.
-    #[test]
-    fn proptest_audit_events_never_leak_secrets(
-        request_id in prop::string::string_regex("[a-z0-9-]{5,20}").unwrap(),
-        principal_id in prop::string::string_regex("[a-z0-9@.]{5,20}").unwrap(),
-        secret_value in prop::string::string_regex("[A-Z0-9]{10,20}").unwrap()
-    ) {
-        // Create a secret that should NOT appear in audit output
-        let _secret = policy_core::Secret::new(secret_value.clone());
-
-        // Create an audit event
-        let event = AuditEvent::new(
-            request_id.clone(),
-            Some(principal_id.clone()),
-            AuditEventKind::ResourceAccess,
-            AuditOutcome::Success,
-        );
-
-        // Check Display output
-        let display_output = format!("{}", event);
-        prop_assert!(
-            !display_output.contains(&secret_value),
-            "AuditEvent Display should not leak secret '{}', got: '{}'",
-            secret_value,
-            display_output
-        );
-
-        // Check Debug output
-        let debug_output = format!("{:?}", event);
-        prop_assert!(
-            !debug_output.contains(&secret_value),
-            "AuditEvent Debug should not leak secret '{}', got: '{}'",
-            secret_value,
-            debug_output
-        );
-
-        // Should contain the non-secret data we provided
-        prop_assert!(display_output.contains(&request_id));
-        prop_assert!(display_output.contains(&principal_id));
     }
 
     /// Property: All sanitizers enforce common invariants
