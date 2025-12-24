@@ -593,32 +593,23 @@ mod tests {
 #[cfg(test)]
 mod proptests {
     use super::*;
+    use crate::test_utils::arb_valid_string;
     use proptest::prelude::*;
 
     // Strategy: Generate arbitrary printable strings
     fn arb_printable_string() -> impl Strategy<Value = String> {
-        prop::string::string_regex("[\\x20-\\x7E]{0,500}")
-            .expect("valid regex for printable ASCII")
+        prop::string::string_regex("[\\x20-\\x7E]{0,500}").expect("valid regex for printable ASCII")
     }
 
     // Strategy: Generate strings with whitespace
     fn arb_whitespace_string() -> impl Strategy<Value = String> {
-        prop::string::string_regex("[ \\t\\n\\r]{0,50}")
-            .expect("valid regex for whitespace")
+        prop::string::string_regex("[ \\t\\n\\r]{0,50}").expect("valid regex for whitespace")
     }
 
     // Strategy: Generate strings with control characters
     fn arb_string_with_control_chars() -> impl Strategy<Value = String> {
         prop::collection::vec(prop::char::range('\x00', '\x1F'), 1..10)
             .prop_map(|chars| chars.into_iter().collect())
-    }
-
-    // Strategy: Generate valid strings (no control chars, non-empty after trim)
-    fn arb_valid_string(max_len: usize) -> impl Strategy<Value = String> {
-        prop::string::string_regex(&format!("[a-zA-Z0-9 _-]{{1,{}}}", max_len.min(100)))
-            .expect("valid regex")
-            .prop_filter("non-empty after trim", |s| !s.trim().is_empty())
-            .prop_map(|s| s.trim().to_string())
     }
 
     proptest! {

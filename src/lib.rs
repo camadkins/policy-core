@@ -79,3 +79,16 @@ pub use sink::{Sink, SinkError, SinkErrorKind, VecSink};
 pub use state::{Authed, Authorized as AuthorizedState, Unauthed};
 pub use tainted::Tainted;
 pub use verified::Verified;
+
+#[cfg(test)]
+pub(crate) mod test_utils {
+    use proptest::prelude::*;
+
+    /// Strategy: Generate valid strings (no control chars, non-empty after trim)
+    pub fn arb_valid_string(max_len: usize) -> impl Strategy<Value = String> {
+        prop::string::string_regex(&format!("[a-zA-Z0-9 _-]{{1,{}}}", max_len.min(100)))
+            .expect("valid regex")
+            .prop_filter("non-empty after trim", |s| !s.trim().is_empty())
+            .prop_map(|s| s.trim().to_string())
+    }
+}

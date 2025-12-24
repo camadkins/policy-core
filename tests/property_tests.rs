@@ -4,9 +4,9 @@
 //! using property-based testing.
 
 use policy_core::{
-    audit::{AuditEvent, AuditEventKind, AuditOutcome},
     Authenticated, Authorized, PolicyGate, Principal, RequestMeta, Sanitizer, StringSanitizer,
     Tainted,
+    audit::{AuditEvent, AuditEventKind, AuditOutcome},
 };
 use proptest::prelude::*;
 

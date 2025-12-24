@@ -191,19 +191,10 @@ mod tests {
         assert_eq!(s, "test");
     }
 
-    #[cfg(test)]
     mod proptests {
         use super::*;
-        use crate::{sanitizer::StringSanitizer, Sanitizer, Tainted};
+        use crate::{Sanitizer, Tainted, sanitizer::StringSanitizer, test_utils::arb_valid_string};
         use proptest::prelude::*;
-
-        // Strategy: Generate valid strings (no control chars, non-empty after trim)
-        fn arb_valid_string(max_len: usize) -> impl Strategy<Value = String> {
-            prop::string::string_regex(&format!("[a-zA-Z0-9 _-]{{1,{}}}", max_len.min(100)))
-                .expect("valid regex")
-                .prop_filter("non-empty after trim", |s| !s.trim().is_empty())
-                .prop_map(|s| s.trim().to_string())
-        }
 
         proptest! {
             /// Property: Valid input survives the Tainted → Sanitizer → Verified flow
