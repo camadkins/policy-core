@@ -211,3 +211,200 @@ impl PolicyGate {
         }
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use crate::request::Principal;
+    use proptest::prelude::*;
+
+    // Strategy: Generate arbitrary request metadata
+    fn arb_request_meta() -> impl Strategy<Value = RequestMeta> {
+        (
+            prop::string::string_regex("[a-z0-9-]{5,20}").unwrap(),
+            prop::option::of(arb_principal()),
+        )
+            .prop_map(|(request_id, principal)| RequestMeta {
+                request_id,
+                principal,
+            })
+    }
+
+    // Strategy: Generate arbitrary principal
+    fn arb_principal() -> impl Strategy<Value = Principal> {
+        (
+            prop::string::string_regex("[a-z0-9-]{3,10}").unwrap(),
+            prop::string::string_regex("[A-Za-z ]{3,15}").unwrap(),
+        )
+            .prop_map(|(id, name)| Principal { id, name })
+    }
+
+    // Strategy: Generate arbitrary action names
+    fn arb_action_name() -> impl Strategy<Value = &'static str> {
+        prop_oneof![
+            Just("log"),
+            Just("http"),
+            Just("audit"),
+            Just("db"),
+            Just("cache"),
+        ]
+    }
+
+    // Strategy: Generate arbitrary policy requirements
+    fn arb_policy_req() -> impl Strategy<Value = PolicyReq> {
+        prop_oneof![
+            Just(PolicyReq::Authenticated),
+            arb_action_name().prop_map(|action| PolicyReq::Authorized { action }),
+        ]
+    }
+
+    // Strategy: Generate a vector of policy requirements
+    fn arb_policy_requirements() -> impl Strategy<Value = Vec<PolicyReq>> {
+        prop::collection::vec(arb_policy_req(), 0..10)
+    }
+
+    proptest! {
+        /// Property: Adding the same requirement N times results in it appearing only once
+        #[test]
+        fn proptest_gate_deduplicates_requirements(
+            meta in arb_request_meta(),
+            req in arb_policy_req(),
+            count in 1usize..10
+        ) {
+            let mut gate = PolicyGate::new(meta);
+
+            // Add the same requirement multiple times
+            for _ in 0..count {
+                gate = gate.require(req.clone());
+            }
+
+            // Count how many times this requirement appears
+            let occurrences = gate.requirements.iter()
+                .filter(|r| gate.same_requirement(r, &req))
+                .count();
+
+            // Should appear exactly once due to deduplication
+            prop_assert_eq!(occurrences, 1);
+        }
+
+        /// Property: Authorized::for_action("X") results in the corresponding capability being granted
+        #[test]
+        fn proptest_gate_authorized_action_grants_capability(
+            request_id in prop::string::string_regex("[a-z0-9-]{5,20}").unwrap(),
+            principal in arb_principal(),
+            action in arb_action_name()
+        ) {
+            let meta = RequestMeta {
+                request_id,
+                principal: Some(principal),
+            };
+
+            let ctx = PolicyGate::new(meta)
+                .require(crate::policy::Authenticated)
+                .require(crate::policy::Authorized::for_action(action))
+                .build()
+                .unwrap();
+
+            // Check that the corresponding capability was granted
+            match action {
+                "log" => prop_assert!(ctx.log_cap().is_some()),
+                "http" => prop_assert!(ctx.http_cap().is_some()),
+                "audit" => prop_assert!(ctx.audit_cap().is_some()),
+                _ => {
+                    // For unknown actions, no capability should be granted
+                    prop_assert!(ctx.log_cap().is_none());
+                    prop_assert!(ctx.http_cap().is_none());
+                    prop_assert!(ctx.audit_cap().is_none());
+                }
+            }
+        }
+
+        /// Property: Building with the same requirements yields an identical context
+        #[test]
+        fn proptest_gate_build_is_deterministic(
+            meta in arb_request_meta(),
+            requirements in arb_policy_requirements()
+        ) {
+            // Skip if requirements need authentication but no principal
+            if requirements.iter().any(|r| matches!(r, PolicyReq::Authenticated | PolicyReq::Authorized { .. }))
+                && meta.principal.is_none()
+            {
+                return Ok(());
+            }
+
+            // Build context twice with same requirements
+            let mut gate1 = PolicyGate::new(meta.clone());
+            for req in &requirements {
+                gate1 = gate1.require(req.clone());
+            }
+
+            let mut gate2 = PolicyGate::new(meta);
+            for req in &requirements {
+                gate2 = gate2.require(req.clone());
+            }
+
+            let ctx1 = gate1.build();
+            let ctx2 = gate2.build();
+
+            // Both should succeed or both should fail
+            match (ctx1, ctx2) {
+                (Ok(c1), Ok(c2)) => {
+                    // Capabilities should match
+                    prop_assert_eq!(c1.log_cap().is_some(), c2.log_cap().is_some());
+                    prop_assert_eq!(c1.http_cap().is_some(), c2.http_cap().is_some());
+                    prop_assert_eq!(c1.audit_cap().is_some(), c2.audit_cap().is_some());
+                }
+                (Err(_), Err(_)) => {
+                    // Both failed as expected
+                }
+                _ => {
+                    return Err(TestCaseError::fail("Inconsistent build results"));
+                }
+            }
+        }
+
+        /// Property: Requirement order doesn't affect the outcome
+        #[test]
+        fn proptest_gate_requirement_order_irrelevant(
+            meta in arb_request_meta(),
+            mut requirements in arb_policy_requirements()
+        ) {
+            // Skip if requirements need authentication but no principal
+            if requirements.iter().any(|r| matches!(r, PolicyReq::Authenticated | PolicyReq::Authorized { .. }))
+                && meta.principal.is_none()
+            {
+                return Ok(());
+            }
+
+            // Build with original order
+            let mut gate1 = PolicyGate::new(meta.clone());
+            for req in &requirements {
+                gate1 = gate1.require(req.clone());
+            }
+            let ctx1 = gate1.build();
+
+            // Build with reversed order
+            requirements.reverse();
+            let mut gate2 = PolicyGate::new(meta);
+            for req in &requirements {
+                gate2 = gate2.require(req.clone());
+            }
+            let ctx2 = gate2.build();
+
+            // Results should be identical regardless of order
+            match (ctx1, ctx2) {
+                (Ok(c1), Ok(c2)) => {
+                    prop_assert_eq!(c1.log_cap().is_some(), c2.log_cap().is_some());
+                    prop_assert_eq!(c1.http_cap().is_some(), c2.http_cap().is_some());
+                    prop_assert_eq!(c1.audit_cap().is_some(), c2.audit_cap().is_some());
+                }
+                (Err(_), Err(_)) => {
+                    // Both failed as expected (order-independent failure)
+                }
+                _ => {
+                    return Err(TestCaseError::fail("Order affected build outcome"));
+                }
+            }
+        }
+    }
+}

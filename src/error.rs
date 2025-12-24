@@ -109,7 +109,7 @@ impl From<crate::SanitizationError> for Violation {
 }
 
 /// The kind of policy violation.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ViolationKind {
     /// Authentication is required but missing
     Unauthenticated,
@@ -155,6 +155,94 @@ impl fmt::Display for ViolationKind {
             ViolationKind::MissingLogCapability => write!(f, "Missing logging capability"),
             ViolationKind::MissingHttpCapability => write!(f, "Missing HTTP capability"),
             ViolationKind::MissingAuditCapability => write!(f, "Missing audit capability"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use crate::Secret;
+    use proptest::prelude::*;
+
+    // Strategy: Generate arbitrary ViolationKind
+    fn arb_violation_kind() -> impl Strategy<Value = ViolationKind> {
+        prop_oneof![
+            Just(ViolationKind::Unauthenticated),
+            prop_oneof![
+                Just("log"),
+                Just("http"),
+                Just("audit"),
+                Just("read"),
+                Just("write"),
+            ]
+            .prop_map(|action| ViolationKind::Unauthorized { action }),
+            Just(ViolationKind::MissingLogCapability),
+            Just(ViolationKind::MissingHttpCapability),
+            Just(ViolationKind::MissingAuditCapability),
+        ]
+    }
+
+    proptest! {
+        /// Property: Violation Display never leaks secrets beyond what's in the message
+        #[test]
+        fn proptest_violation_display_no_secret_leakage(
+            kind in arb_violation_kind(),
+            secret_value in prop::string::string_regex("[A-Z0-9]{10,20}").unwrap(),
+            safe_message in prop::string::string_regex("[a-z ]{5,30}").unwrap()
+        ) {
+            // Create a secret (should never appear in violation display)
+            let _secret = Secret::new(secret_value.clone());
+
+            // Create a violation with a safe message that does NOT contain the secret
+            let violation = Violation::new(kind, safe_message.clone());
+
+            // Display the violation
+            let display_output = format!("{}", violation);
+
+            // The secret value should NOT appear in the display output
+            // (since we deliberately didn't put it in the message)
+            prop_assert!(
+                !display_output.contains(&secret_value),
+                "Violation display should not leak secret '{}', got: '{}'",
+                secret_value,
+                display_output
+            );
+
+            // The display should contain the safe message we provided
+            prop_assert!(
+                display_output.contains(&safe_message),
+                "Violation display should contain message '{}', got: '{}'",
+                safe_message,
+                display_output
+            );
+        }
+
+        /// Property: ViolationKind Display output matches expected patterns
+        #[test]
+        fn proptest_violation_kind_display_stable(kind in arb_violation_kind()) {
+            let display_output = format!("{}", kind);
+
+            // Verify the display matches expected patterns
+            match kind {
+                ViolationKind::Unauthenticated => {
+                    prop_assert_eq!(display_output, "Unauthenticated");
+                }
+                ViolationKind::Unauthorized { action } => {
+                    prop_assert!(display_output.starts_with("Unauthorized for '"));
+                    prop_assert!(display_output.ends_with('\''));
+                    prop_assert!(display_output.contains(action));
+                }
+                ViolationKind::MissingLogCapability => {
+                    prop_assert_eq!(display_output, "Missing logging capability");
+                }
+                ViolationKind::MissingHttpCapability => {
+                    prop_assert_eq!(display_output, "Missing HTTP capability");
+                }
+                ViolationKind::MissingAuditCapability => {
+                    prop_assert_eq!(display_output, "Missing audit capability");
+                }
+            }
         }
     }
 }
