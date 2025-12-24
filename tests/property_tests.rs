@@ -75,9 +75,11 @@ proptest! {
             }
             (Some(_), Err(e)) => {
                 // Principal exists but build failed → INVARIANT VIOLATION
-                // With current M2 logic, principal existence satisfies all policies
+                // With basic authorization, principal existence satisfies all policies
                 return Err(TestCaseError::fail(format!(
-                    "Build failed despite principal existing - M2 invariant violated: {:?}",
+                    "PolicyGate build failed with valid Principal present. \
+                     Expected: Principal existence satisfies authentication policies in basic authorization mode. \
+                     Error: {:?}",
                     e
                 )));
             }
@@ -92,8 +94,51 @@ proptest! {
 
     /// Property: StringSanitizer enforces fundamental security invariants
     ///
-    /// This test verifies that StringSanitizer correctly rejects empty/whitespace-only
-    /// strings and strings containing control characters.
+    /// This test verifies that StringSanitizer correctly rejects:
+    /// - Empty/whitespace-only strings (prevents validation bypass)
+    /// - Control characters (prevents injection attacks)
+    ///
+    /// ## Real-World Threats Prevented
+    ///
+    /// ### Log Injection (CWE-117)
+    ///
+    /// **Attack:** User submits `"normaluser\nadmin logged in successfully"`
+    ///
+    /// **Impact:** The embedded newline `\n` creates a fake log entry. When logs are parsed,
+    /// it appears that "admin logged in successfully" is a separate legitimate entry,
+    /// corrupting the audit trail and enabling privilege escalation attacks.
+    ///
+    /// **Defense:** StringSanitizer rejects all C0 control characters (0x00-0x1F),
+    /// including `\n`, `\r`, and `\t`.
+    ///
+    /// ### Terminal Escape Injection
+    ///
+    /// **Attack:** Input `"\x1b[2J\x1b[H[SYSTEM] All clear"` (ANSI clear screen + cursor home)
+    ///
+    /// **Impact:** When an administrator views application logs in a terminal,
+    /// the ANSI escape sequences are interpreted, clearing the screen and repositioning
+    /// the cursor. The attacker can hide previous log entries or display fake system messages.
+    ///
+    /// **Defense:** ANSI escape sequences start with ESC (`\x1b`, a C0 control character),
+    /// which StringSanitizer rejects.
+    ///
+    /// ### CRLF Injection (HTTP Header Injection)
+    ///
+    /// **Attack:** Input `"value\r\nX-Injected: malicious\r\n\r\n<script>alert(1)</script>"`
+    ///
+    /// **Impact:** If this string is used in HTTP headers or responses, the CRLF sequence
+    /// (`\r\n`) injects additional headers or even HTML content, enabling XSS, cache poisoning,
+    /// or session fixation attacks.
+    ///
+    /// **Defense:** Both `\r` (0x0D) and `\n` (0x0A) are rejected as control characters.
+    ///
+    /// ## Additional Protections
+    ///
+    /// - **C1 control characters** (0x80-0x9F): Unicode control codes rejected to prevent
+    ///   bidirectional text spoofing and other Unicode-based attacks
+    /// - **DEL character** (0x7F): Historically caused issues in terminal processing
+    /// - **Empty/whitespace bypass**: Prevents attackers from submitting empty strings
+    ///   to bypass required field validation
     #[test]
     fn proptest_string_sanitizer_invariants(
         empty_string in prop::string::string_regex("[ \\t\\n\\r]{0,10}").unwrap(),

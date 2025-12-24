@@ -181,8 +181,31 @@ impl PolicyGate {
                         "Cannot authorize unauthenticated principal",
                     ));
                 }
-                // For M2, just check that principal exists
-                // M3+ will add real permission/role checks
+                // Authorization validation (basic implementation):
+                //
+                // Currently, authorization is simplified: any authenticated principal
+                // is authorized for any action. This model is suitable for:
+                // - Early-stage systems with coarse-grained access control
+                // - Prototypes where all authenticated users have equal privileges
+                // - Internal tools with implicit trust assumptions
+                //
+                // Future enhancement: Role-Based Access Control (RBAC)
+                //
+                // A production authorization system would check whether the principal
+                // has specific permissions for the requested action. This typically involves:
+                // - Checking principal.roles against action requirements
+                // - Querying a policy decision point (PDP) or authorization service
+                // - Evaluating attribute-based policies (ABAC) for fine-grained control
+                //
+                // Example future logic:
+                //   match action {
+                //       "admin" => require_role(&principal, "admin"),
+                //       "log" => require_any_role(&principal, &["user", "admin"]),
+                //       _ => Ok(()),
+                //   }
+                //
+                // The simplified implementation here is intentional and will be enhanced
+                // in future iterations as access control requirements evolve.
             }
         }
         Ok(())
