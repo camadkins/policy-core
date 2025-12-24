@@ -73,9 +73,13 @@ proptest! {
             (None, Err(_)) => {
                 // No principal → should fail (expected)
             }
-            (Some(_), Err(_)) => {
-                // Principal exists but build failed (shouldn't happen with current logic)
-                // This is acceptable - just means validation failed
+            (Some(_), Err(e)) => {
+                // Principal exists but build failed → INVARIANT VIOLATION
+                // With current M2 logic, principal existence satisfies all policies
+                return Err(TestCaseError::fail(format!(
+                    "Build failed despite principal existing - M2 invariant violated: {:?}",
+                    e
+                )));
             }
             (None, Ok(_)) => {
                 // No principal but build succeeded → INVARIANT VIOLATION
@@ -86,13 +90,12 @@ proptest! {
         }
     }
 
-    /// Property: All sanitizers enforce common invariants
+    /// Property: StringSanitizer enforces fundamental security invariants
     ///
-    /// This test verifies that all sanitizer implementations (currently just
-    /// StringSanitizer, but validates the pattern for future sanitizers) enforce
-    /// fundamental security invariants like rejecting empty strings and control characters.
+    /// This test verifies that StringSanitizer correctly rejects empty/whitespace-only
+    /// strings and strings containing control characters.
     #[test]
-    fn proptest_different_sanitizers_same_invariants(
+    fn proptest_string_sanitizer_invariants(
         empty_string in prop::string::string_regex("[ \\t\\n\\r]{0,10}").unwrap(),
         control_chars in prop::collection::vec(
             prop::char::range('\x00', '\x1F'),
