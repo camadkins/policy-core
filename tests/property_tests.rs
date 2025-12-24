@@ -98,7 +98,11 @@ proptest! {
     fn proptest_string_sanitizer_invariants(
         empty_string in prop::string::string_regex("[ \\t\\n\\r]{0,10}").unwrap(),
         control_chars in prop::collection::vec(
-            prop::char::range('\x00', '\x1F'),
+            prop_oneof![
+                prop::char::range('\x00', '\x1F'),  // C0 controls
+                Just('\x7F'),                        // DEL
+                prop::char::range('\u{80}', '\u{9F}'),  // C1 controls
+            ],
             1..3
         )
     ) {
