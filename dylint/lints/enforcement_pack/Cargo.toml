@@ -11,7 +11,6 @@ crate-type = ["cdylib"]
 dylint_linting = "5.0"
 
 [dev-dependencies]
-dylint_testing = "5.0"
 
 [package.metadata.rust-analyzer]
 rustc_private = true

@@ -242,10 +242,38 @@ dylint/
         ├── Cargo.toml      # Lint crate manifest
         ├── src/
         │   └── lib.rs      # Lint implementations
-        └── ui-tests/       # UI test cases
-            ├── *.rs        # Test inputs
-            └── *.stderr    # Expected outputs
+        └── tests/          # Integration tests
+            └── integration_test.rs  # Tests that verify lints work via cargo dylint
 ```
+
+---
+
+## Testing
+
+The enforcement pack includes integration tests that validate lints work correctly in practice.
+
+### Running Tests
+
+From the repository root:
+
+```bash
+# Run all enforcement pack tests
+cargo +nightly test --manifest-path dylint/lints/enforcement_pack/Cargo.toml
+
+# Run full workspace tests (includes enforcement pack)
+cargo test --all-features
+```
+
+### Testing Approach
+
+The enforcement pack uses **integration tests** that run `cargo dylint` directly on the workspace. This approach:
+
+- Tests lints as they're actually used in CI and development
+- Verifies lints are properly registered and loaded
+- Validates lints pass on the main codebase (proving no false positives)
+- Avoids complexity and brittleness of UI test frameworks
+
+Tests are located in `dylint/lints/enforcement_pack/tests/integration_test.rs`.
 
 ---
 
