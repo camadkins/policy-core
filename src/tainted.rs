@@ -100,4 +100,39 @@ mod tests {
 
         let _ = tainted_str;
     }
+
+    #[cfg(test)]
+    mod proptests {
+        use super::*;
+        use crate::{sanitizer::StringSanitizer, Sanitizer};
+        use proptest::prelude::*;
+
+        // Strategy: Generate valid strings (no control chars, non-empty after trim)
+        fn arb_valid_string(max_len: usize) -> impl Strategy<Value = String> {
+            prop::string::string_regex(&format!("[a-zA-Z0-9 _-]{{1,{}}}", max_len.min(100)))
+                .expect("valid regex")
+                .prop_filter("non-empty after trim", |s| !s.trim().is_empty())
+                .prop_map(|s| s.trim().to_string())
+        }
+
+        proptest! {
+            /// Property: Cloning a Tainted value results in identical sanitization outcomes
+            #[test]
+            fn proptest_tainted_clone_preserves_value(input in arb_valid_string(256)) {
+                let sanitizer = StringSanitizer::new(256);
+
+                // Create tainted value and clone it
+                let tainted1 = Tainted::new(input.clone());
+                let tainted2 = tainted1.clone();
+
+                // Sanitize both
+                let verified1 = sanitizer.sanitize(tainted1).expect("valid input should pass");
+                let verified2 = sanitizer.sanitize(tainted2).expect("valid input should pass");
+
+                // Both should produce identical verified values
+                prop_assert_eq!(verified1.as_ref(), verified2.as_ref());
+                prop_assert_eq!(verified1.as_ref(), &input);
+            }
+        }
+    }
 }

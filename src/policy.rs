@@ -2,7 +2,7 @@
 ///
 /// This enum represents all possible policy requirements.
 /// Policies are evaluated during `PolicyGate::build()`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PolicyReq {
     /// Requires an authenticated principal
     Authenticated,

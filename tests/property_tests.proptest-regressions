@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc a22de37469cf476cdb1184f4e4db7f05355bfaebd4fa63c2b4b0f9f3ab6a6a26 # shrinks to empty_string = "", control_char_string = "\tvalid"

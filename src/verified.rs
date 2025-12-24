@@ -190,4 +190,51 @@ mod tests {
         let s: &String = verified.as_ref();
         assert_eq!(s, "test");
     }
+
+    #[cfg(test)]
+    mod proptests {
+        use super::*;
+        use crate::{sanitizer::StringSanitizer, Sanitizer, Tainted};
+        use proptest::prelude::*;
+
+        // Strategy: Generate valid strings (no control chars, non-empty after trim)
+        fn arb_valid_string(max_len: usize) -> impl Strategy<Value = String> {
+            prop::string::string_regex(&format!("[a-zA-Z0-9 _-]{{1,{}}}", max_len.min(100)))
+                .expect("valid regex")
+                .prop_filter("non-empty after trim", |s| !s.trim().is_empty())
+                .prop_map(|s| s.trim().to_string())
+        }
+
+        proptest! {
+            /// Property: Valid input survives the Tainted → Sanitizer → Verified flow
+            #[test]
+            fn proptest_tainted_to_verified_preserves_valid_data(input in arb_valid_string(256)) {
+                let sanitizer = StringSanitizer::new(256);
+                let tainted = Tainted::new(input.clone());
+
+                // Sanitize the tainted input
+                let verified = sanitizer.sanitize(tainted).expect("valid input should pass");
+
+                // The verified value should equal the original (after trimming)
+                prop_assert_eq!(verified.as_ref(), &input);
+            }
+
+            /// Property: as_ref() returns the same value as into_inner()
+            #[test]
+            fn proptest_verified_as_ref_equals_inner(value in prop::string::string_regex("[a-zA-Z0-9 _-]{1,50}").unwrap()) {
+                let verified = Verified::new_unchecked(value.clone());
+
+                // Get reference via as_ref()
+                let ref_value = verified.as_ref();
+
+                // Clone to test again since into_inner consumes
+                let verified2 = Verified::new_unchecked(value.clone());
+                let inner_value = verified2.into_inner();
+
+                // Both should be equal
+                prop_assert_eq!(ref_value, &inner_value);
+                prop_assert_eq!(ref_value, &value);
+            }
+        }
+    }
 }
