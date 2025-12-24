@@ -1,0 +1,1 @@
+{"rustc":2410649210936607743,"features":"","declared_features":"","target":0,"profile":0,"path":0,"deps":[[780878973178088576,"build_script_build",false,11399734615756915645]],"local":[{"RerunIfChanged":{"output":"debug/build/dylint-0723c0fb17bc702f/output","paths":["build.rs"]}}],"rustflags":[],"config":0,"compile_kind":0}
