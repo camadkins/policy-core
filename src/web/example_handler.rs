@@ -51,15 +51,13 @@ pub fn handle_public_search(adapter: &RequestAdapter) -> Result<PublicSearchResu
     // 2. Get search query from tainted inputs
     let tainted_query = extraction
         .inputs
-        .query_params()
-        .get("q")
+        .get_query("q")
         .ok_or_else(|| {
             Violation::new(
                 crate::error::ViolationKind::Unauthenticated,
                 "Missing query parameter 'q'",
             )
-        })?
-        .clone();
+        })?;
 
     // 3. Sanitize query (prevent injection, enforce length limits)
     let sanitizer = StringSanitizer::new(200).unwrap();
@@ -196,15 +194,13 @@ pub fn handle_api_call(adapter: &RequestAdapter) -> Result<ApiCallResult, Violat
     // 4. Extract and sanitize tainted URL
     let tainted_url = extraction
         .inputs
-        .query_params()
-        .get("url")
+        .get_query("url")
         .ok_or_else(|| {
             Violation::new(
                 crate::error::ViolationKind::Unauthenticated,
                 "Missing URL parameter",
             )
-        })?
-        .clone();
+        })?;
 
     let sanitizer = StringSanitizer::new(256).unwrap();
     let verified_url = sanitizer.sanitize(tainted_url)?;
@@ -217,8 +213,9 @@ pub fn handle_api_call(adapter: &RequestAdapter) -> Result<ApiCallResult, Violat
     http.get(&verified_url);
 
     // 6. Verify request-id was included in HTTP metadata
-    let requests = http.requests();
-    assert_eq!(requests[0].request_id, ctx.request_id());
+    http.with_requests(|requests| {
+        assert_eq!(requests[0].request_id, ctx.request_id());
+    });
 
     Ok(ApiCallResult {
         request_id: ctx.request_id().to_string(),
@@ -273,29 +270,25 @@ pub fn handle_admin_action(adapter: &RequestAdapter) -> Result<AdminActionResult
 
     let tainted_action = extraction
         .inputs
-        .query_params()
-        .get("action")
+        .get_query("action")
         .ok_or_else(|| {
             Violation::new(
                 crate::error::ViolationKind::Unauthenticated,
                 "Missing action",
             )
-        })?
-        .clone();
+        })?;
 
     let verified_action = sanitizer.sanitize(tainted_action)?;
 
     let tainted_target = extraction
         .inputs
-        .query_params()
-        .get("target")
+        .get_query("target")
         .ok_or_else(|| {
             Violation::new(
                 crate::error::ViolationKind::Unauthenticated,
                 "Missing target",
             )
-        })?
-        .clone();
+        })?;
 
     let verified_target = sanitizer.sanitize(tainted_target)?;
 

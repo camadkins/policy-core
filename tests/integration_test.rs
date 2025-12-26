@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use policy_core::{
     audit::{AuditEvent, AuditEventKind, AuditOutcome, AuditTrail},
     Authenticated, Authorized, HttpMethod, PolicyGate, Principal, RequestMeta, Sanitizer, Secret,

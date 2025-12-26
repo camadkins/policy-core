@@ -220,7 +220,76 @@ impl<'a> PolicyHttp<'a> {
         self.requests.borrow().len()
     }
 
+    /// Provides borrowed access to request history via callback (zero-copy).
+    ///
+    /// This method allows you to access the request list without cloning by
+    /// passing a closure that receives a borrowed slice.
+    ///
+    /// # Performance
+    ///
+    /// This is the most efficient way to read the request history when you don't
+    /// need to own it. The closure receives `&[HttpRequest]` and can iterate,
+    /// filter, or perform any read operation without allocating.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// # use policy_core::{PolicyHttp, Verified};
+    /// # let http = PolicyHttp::new();
+    /// # let url = Verified::new_unchecked("https://example.com".to_string());
+    /// http.get(&url);
+    ///
+    /// // Zero-copy access via callback
+    /// http.with_requests(|requests| {
+    ///     println!("Request count: {}", requests.len());
+    ///     for req in requests {
+    ///         println!("  {} {}", req.method, req.url);
+    ///     }
+    /// });
+    /// ```
+    pub fn with_requests<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&[HttpRequest]) -> R,
+    {
+        f(&self.requests.borrow())
+    }
+
+    /// Returns an iterator over request history (lazy cloning).
+    ///
+    /// # Performance Note
+    ///
+    /// Due to `RefCell` interior mutability, this method clones the vector
+    /// before returning an iterator. However, iteration happens lazily, so if
+    /// you only need a few requests, this can be more efficient than processing
+    /// the entire cloned vector.
+    ///
+    /// For zero-copy access, prefer [`with_requests()`](Self::with_requests).
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// # use policy_core::{PolicyHttp, Verified};
+    /// # let http = PolicyHttp::new();
+    /// # let url = Verified::new_unchecked("https://example.com".to_string());
+    /// http.get(&url);
+    ///
+    /// // Iterator-based access
+    /// for request in http.iter_requests() {
+    ///     println!("{} {}", request.method, request.url);
+    /// }
+    /// ```
+    pub fn iter_requests(&self) -> impl Iterator<Item = HttpRequest> {
+        self.requests.borrow().clone().into_iter()
+    }
+
     /// Returns a snapshot of all recorded requests.
+    ///
+    /// # Performance Note
+    ///
+    /// **This method clones the entire request history.**
+    ///
+    /// **Deprecated:** Use [`iter_requests()`](Self::iter_requests) for lazy iteration
+    /// or [`with_requests()`](Self::with_requests) for zero-copy access.
     ///
     /// This is useful for testing and verification.
     ///
@@ -239,12 +308,17 @@ impl<'a> PolicyHttp<'a> {
     /// assert_eq!(requests[0].url, "https://example.com");
     /// assert_eq!(requests[0].body_len, 4);
     /// ```
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use `iter_requests()` or `with_requests()` for better performance"
+    )]
     pub fn requests(&self) -> Vec<HttpRequest> {
         self.requests.borrow().clone()
     }
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use crate::{Sanitizer, StringSanitizer, Tainted};
