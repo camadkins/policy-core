@@ -55,9 +55,9 @@
 
 Currently, only the latest version receives security updates:
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
+| Version | Supported |
+| ------- | --------- |
+| 0.1.x   | Yes       |
 
 ## Reporting a Vulnerability
 
@@ -136,12 +136,12 @@ If you discover a security vulnerability in `policy-core`:
 
 ### What NOT to Do
 
-- ❌ Don't use in production without thorough testing
-- ❌ Don't assume it prevents all security issues
-- ❌ Don't disable enforcement lints without review
-- ❌ Don't bypass type system with `unsafe`
-- ❌ Don't trust input without validation
-- ❌ Don't rely solely on this library for security
+- Don't use in production without thorough testing
+- Don't assume it prevents all security issues
+- Don't disable enforcement lints without review
+- Don't bypass type system with `unsafe`
+- Don't trust input without validation
+- Don't rely solely on this library for security
 
 ## Security Testing
 

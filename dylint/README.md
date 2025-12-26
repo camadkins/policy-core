@@ -42,10 +42,10 @@ This is **enforcement by construction, not discipline** (DESIGN_RATIONALE.local.
 
 **Example:**
 ```rust
-// ❌ Bad - bypasses PolicyLog
+// Bad - bypasses PolicyLog
 println!("User logged in: {}", user_id);
 
-// ✅ Good - uses structured logging
+// Good - uses structured logging
 tracing::info!("User logged in: {}", user_id);
 ```
 
@@ -160,7 +160,7 @@ fn forge_verified_for_test(value: String) -> Verified<String> {
 **Invalid suppression (violates architectural invariants):**
 
 ```rust
-// ❌ REJECTED: This bypasses capability gating
+// REJECTED: This bypasses capability gating
 #[allow(enforcement_pack::no_println)]
 fn log_user_action(user_id: &str) {
     println!("User {} logged in", user_id); // No LogCap required
@@ -170,7 +170,7 @@ fn log_user_action(user_id: &str) {
 **Correct approach:**
 
 ```rust
-// ✅ Use capability-gated sink
+// Use capability-gated sink
 fn log_user_action(ctx: &Ctx, user_id: &str) -> Result<(), Error> {
     ctx.log().info("User logged in", &[("user_id", user_id)])?;
     Ok(())

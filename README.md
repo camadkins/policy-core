@@ -196,7 +196,7 @@ sink.sink(&verified).expect("sink succeeds");
 // Verify the side effect
 assert_eq!(sink.to_vec(), vec!["hello world"]); // trimmed
 
-// ❌ This does NOT compile (type error):
+// This does NOT compile (type error):
 // let tainted = Tainted::new("unsafe".to_string());
 // sink.sink(&tainted); // Expected &Verified<String>, got &Tainted<String>
 ```
