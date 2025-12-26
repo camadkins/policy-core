@@ -4,6 +4,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-2024-orange.svg)](https://www.rust-lang.org)
+[![Crates.io](https://img.shields.io/crates/v/policy-core.svg)](https://crates.io/crates/policy-core)
+[![Documentation](https://docs.rs/policy-core/badge.svg)](https://docs.rs/policy-core)
+[![CI Status](https://github.com/camadkins/policy-core/workflows/CI/badge.svg)](https://github.com/camadkins/policy-core/actions)
 
 ## Overview
 
@@ -17,6 +20,71 @@ The data flow:
 ```text
 Tainted<T> → Sanitizer → Verified<T> → Sink
 ```
+
+## Quick Start
+
+Add `policy-core` to your project:
+
+```bash
+cargo add policy-core
+```
+
+Here's a minimal example demonstrating taint tracking:
+
+```rust
+use policy_core::{Tainted, Sanitizer, StringSanitizer, Sink, VecSink};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Step 1: Mark untrusted input as tainted
+    let user_input = Tainted::new("  hello world  ".to_string());
+
+    // Step 2: Sanitize with validation rules
+    let sanitizer = StringSanitizer::new(256);
+    let verified = sanitizer.sanitize(user_input)?;
+
+    // Step 3: Pass verified data to sink
+    let sink = VecSink::new();
+    sink.sink(&verified)?;
+
+    // Verify the result (trimmed whitespace)
+    assert_eq!(sink.to_vec(), vec!["hello world"]);
+
+    println!("Success! Input was validated and processed safely.");
+    Ok(())
+}
+```
+
+The type system prevents bypassing validation at compile time. See the [Common Usage Patterns](#common-usage-patterns) below for when to use each abstraction, or explore the [`examples/`](examples/) directory for complete demonstrations. Read the [full documentation](https://docs.rs/policy-core) for detailed API reference.
+
+## Common Usage Patterns
+
+These patterns demonstrate when and how to use policy-core's core abstractions. See the [`examples/`](examples/) directory for complete working code.
+
+### Pattern: Working with Tainted Data
+
+**When to use:** Mark all external input—user forms, API requests, file contents—as tainted at system boundaries.
+
+**Key insight:** `Tainted<T>` prevents accidental use of unvalidated data. The type system forces explicit validation before sinks accept the data.
+
+**Reference:** [`examples/basic_taint_flow.rs`](examples/basic_taint_flow.rs), integration tests in `tests/taint_tracking_test.rs`
+
+### Pattern: Building Authorization Contexts
+
+**When to use:** Create verified contexts that carry proof of authentication and authorization through your application.
+
+**Key insight:** `PolicyGate` validates policies before constructing a `Ctx`. Operations requiring specific capabilities demand the corresponding `Ctx` state as a parameter.
+
+**Reference:** [`examples/policy_gate_validation.rs`](examples/policy_gate_validation.rs), see [Core Concepts](#core-concepts) below
+
+### Pattern: Using Capabilities
+
+**When to use:** Gate access to sensitive operations (logging, database writes, HTTP calls) behind unforgeable capability tokens.
+
+**Key insight:** Capabilities have `pub(crate)` constructors. External code cannot forge them—they must be granted through policy validation.
+
+**Reference:** [`examples/audit_trail.rs`](examples/audit_trail.rs), see the [End-to-End example](#example-end-to-end-flow) below
+
+For complete demonstrations of these patterns integrated together, see [`src/demo.rs`](src/demo.rs) and the full integration test suite.
 
 ## Core Concepts
 
