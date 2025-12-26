@@ -49,11 +49,6 @@ println!("User logged in: {}", user_id);
 tracing::info!("User logged in: {}", user_id);
 ```
 
-## Future Lints
-
-- **Verified<T> forgeability prevention** (Issue #39): Detect attempts to construct `Verified<T>` outside approved paths
-- **Tainted<T> bypass detection** (Issue #40): Detect flows from `Tainted<T>` to sinks without sanitization
-
 ---
 
 ## Running the Enforcement Pack

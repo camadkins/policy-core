@@ -10,11 +10,31 @@
 
 ## Overview
 
-`policy-core` is a research project exploring compile-time enforcement of security policies through Rust's type system. The goal is to demonstrate patterns that prevent untrusted data from reaching sensitive operations without explicit validation.
-
 Untrusted input is wrapped in a `Tainted<T>` type with no public accessors. To perform side effects—logging, database writes, HTTP requests—the data must pass through a `Sanitizer` that validates it and returns `Verified<T>`. Sinks accept only `Verified<T>`, making compile-time bypass structurally impossible.
 
-This is a demonstration project. It shows architectural patterns for taint tracking, capability-based access control, and explicit validation. The type system enforces some invariants, but the project is not formally verified or security-audited. Do not use this as a production security framework.
+## Project Status
+
+**Version 0.1.0 (Pre-Release)**
+
+This is the initial public release of `policy-core`. The library demonstrates compile-time policy enforcement patterns using Rust's type system.
+
+**What's Ready:**
+- Core abstractions (`Tainted<T>`, `Verified<T>`, `Sanitizer`, `Sink`)
+- Capability-based access control (`LogCap`, `AuditCap`, etc.)
+- Type-state contexts (`Ctx<Unauthed>` → `Ctx<Authed>` → `Ctx<Authorized>`)
+- Web framework integration (Axum extractors, middleware)
+- Enforcement pack (Dylint lint: `NO_PRINTLN`)
+- Comprehensive test suite (159 tests)
+- API documentation
+
+**Limitations:**
+- Not formally verified or security-audited
+- Example sanitizers require domain-specific customization for production
+- v0.1.0 API may evolve based on real-world usage
+
+**Production Use:** This library is suitable for projects that understand its security model (see [SECURITY.md](SECURITY.md) and [DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md)). It provides structural guarantees through the type system but is not a complete security solution. Use as part of defense-in-depth strategy.
+
+See [Security & Limitations](#security--limitations) for details.
 
 The data flow:
 ```text
@@ -242,14 +262,7 @@ The sanitizer trims whitespace, rejects empty strings, blocks control characters
 * Milestone 7: Audit trail support (`AuditCap`, structured events)
 * Milestone 8: Web framework integration (Axum extractors, middleware)
 * Milestone 9: Enforcement pack infrastructure (Dylint lints, CI integration)
-
-**In Progress:**
-
-* Policy-specific lints for `Verified<T>` forgeability prevention (Issue #38)
-* Taint bypass detection lints (Issue #39)
-* Forbidden sink detection lints (Issue #40)
-
-This is an experimental project. APIs are subject to change.
+* Milestone 10: Documentation and publishing readiness
 
 ## Security & Limitations
 
