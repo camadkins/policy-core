@@ -3,7 +3,7 @@
 //! This module provides the boundary between HTTP frameworks and policy-core's
 //! enforcement mechanisms. It handles:
 //! - Mapping HTTP requests to domain types (RequestMeta)
-//! - Introducing taint at the boundary (untrusted inputs → Tainted<T>)
+//! - Introducing taint at the boundary (untrusted inputs → `Tainted<T>`)
 //! - Request-ID extraction and propagation
 //!
 //! # Design Principles
