@@ -62,5 +62,5 @@ mod middleware;
 pub use adapter::{RequestAdapter, TaintedInputs};
 pub use extract::{ExtractMetadata, ExtractTaintedInputs};
 pub use middleware::{
-    AuthenticatedExtraction, UnauthenticatedExtraction, extract_authed, extract_unauthed,
+    extract_authed, extract_unauthed, AuthenticatedExtraction, UnauthenticatedExtraction,
 };

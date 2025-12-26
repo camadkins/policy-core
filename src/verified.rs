@@ -193,7 +193,7 @@ mod tests {
 
     mod proptests {
         use super::*;
-        use crate::{Sanitizer, Tainted, sanitizer::StringSanitizer, test_utils::arb_valid_string};
+        use crate::{sanitizer::StringSanitizer, test_utils::arb_valid_string, Sanitizer, Tainted};
         use proptest::prelude::*;
 
         proptest! {

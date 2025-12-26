@@ -10,8 +10,8 @@
 //! Run with: `cargo run --example web_request_flow`
 
 use policy_core::{
-    Authenticated, Authorized, PolicyGate, Principal, RequestMeta, Sanitizer, Sink,
-    StringSanitizer, Tainted, VecSink, actions,
+    actions, Authenticated, Authorized, PolicyGate, Principal, RequestMeta, Sanitizer, Sink,
+    StringSanitizer, Tainted, VecSink,
 };
 
 /// Simulates extracting metadata from an HTTP request

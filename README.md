@@ -3,7 +3,7 @@
 > Compile-time policy enforcement and taint tracking for Rust.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/rust-2024-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
 [![Crates.io](https://img.shields.io/crates/v/policy-core.svg)](https://crates.io/crates/policy-core)
 [![Documentation](https://docs.rs/policy-core/badge.svg)](https://docs.rs/policy-core)
 [![CI Status](https://github.com/camadkins/policy-core/workflows/CI/badge.svg)](https://github.com/camadkins/policy-core/actions)

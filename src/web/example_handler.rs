@@ -10,7 +10,7 @@ use crate::audit::{AuditEvent, AuditEventKind, AuditOutcome};
 use crate::error::Violation;
 use crate::{Authenticated, Authorized, PolicyGate, Sanitizer, StringSanitizer};
 
-use super::{ExtractMetadata, RequestAdapter, extract_authed, extract_unauthed};
+use super::{extract_authed, extract_unauthed, ExtractMetadata, RequestAdapter};
 
 /// Result of a public endpoint handler (no authentication required).
 ///

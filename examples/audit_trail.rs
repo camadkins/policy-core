@@ -9,8 +9,9 @@
 //! Run with: `cargo run --example audit_trail`
 
 use policy_core::{
-    Authenticated, Authorized, PolicyGate, Principal, RequestMeta, actions,
+    actions,
     audit::{AuditEvent, AuditEventKind, AuditOutcome, AuditTrail},
+    Authenticated, Authorized, PolicyGate, Principal, RequestMeta,
 };
 
 fn main() {

@@ -8,7 +8,7 @@
 //!
 //! Run with: `cargo run --example policy_gate_validation`
 
-use policy_core::{Authenticated, Authorized, PolicyGate, Principal, RequestMeta, actions};
+use policy_core::{actions, Authenticated, Authorized, PolicyGate, Principal, RequestMeta};
 
 fn main() {
     println!("=== Policy Gate Validation Example ===\n");

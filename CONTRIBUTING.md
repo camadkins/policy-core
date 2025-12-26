@@ -16,7 +16,7 @@ Before contributing, please read [ARCHITECTURE.md](ARCHITECTURE.md) and [DESIGN_
 
 ### Prerequisites
 
-- Rust stable (edition 2024)
+- Rust stable (edition 2021)
 - Rust nightly (for dylint enforcement pack)
 
 ### Clone and Build
