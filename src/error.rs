@@ -82,7 +82,7 @@ impl Violation {
 }
 
 impl fmt::Display for Violation {
-    /// Formats the violation as "<kind>: <message>".
+    /// Formats the violation as "`<kind>: <message>`".
     ///
     /// # Examples
     ///

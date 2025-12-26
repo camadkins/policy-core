@@ -11,7 +11,7 @@
 /// There are no public constructors, and no `From<T>` or `Into<Verified<T>>` implementations
 /// that would allow arbitrary values to be wrapped.
 ///
-/// Construction is restricted to crate-internal code through [`new_unchecked`](Self::new_unchecked),
+/// Construction is restricted to crate-internal code through `new_unchecked`,
 /// which is intentionally `pub(crate)`. Higher-level abstractions (e.g., `Sanitizer` in Milestone 4)
 /// are responsible for enforcing validation rules before calling this constructor.
 ///

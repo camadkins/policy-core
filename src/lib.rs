@@ -42,7 +42,7 @@
 //! ```
 
 #![forbid(unsafe_code)]
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 
 pub mod audit;
 mod capability;
