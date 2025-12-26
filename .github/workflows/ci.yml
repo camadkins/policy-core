@@ -148,9 +148,24 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install cargo-dylint and dylint-link
+      - name: Cache cargo-dylint binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/cargo-dylint
+            ~/.cargo/bin/dylint-link
+          key: ${{ runner.os }}-dylint-binaries-v1
+
+      - name: Install or update cargo-dylint and dylint-link
         run: |
-          cargo install cargo-dylint dylint-link
+          # Install if not present, or update if outdated
+          if ! command -v cargo-dylint &> /dev/null || ! command -v dylint-link &> /dev/null; then
+            echo "Installing cargo-dylint and dylint-link..."
+            cargo install cargo-dylint dylint-link
+          else
+            echo "cargo-dylint and dylint-link found, checking for updates..."
+            cargo install cargo-dylint dylint-link || echo "Already up to date"
+          fi
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Cache cargo registry
@@ -176,6 +191,8 @@ jobs:
       - name: Build enforcement pack libraries
         run: |
           cd dylint
+          # Set LD_LIBRARY_PATH to include nightly toolchain's lib directory for LLVM linking
+          export LD_LIBRARY_PATH="$(rustc +nightly --print sysroot)/lib:${LD_LIBRARY_PATH:-}"
           cargo +nightly build --release
 
       - name: Run enforcement pack lints

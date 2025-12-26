@@ -120,6 +120,9 @@ jobs:
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Build crate package
+        run: cargo package --verbose
+
       - name: Create draft release
         uses: softprops/action-gh-release@v2
         with:
@@ -153,4 +156,6 @@ jobs:
             - [Changelog](https://github.com/camadkins/policy-core/blob/main/CHANGELOG.md)
           draft: true
           prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
+          files: |
+            target/package/policy-core-${{ steps.get_version.outputs.version }}.crate
           token: ${{ secrets.GITHUB_TOKEN }}
