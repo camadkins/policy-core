@@ -4,8 +4,8 @@
 //! using property-based testing.
 
 use policy_core::{
-    Authenticated, Authorized, PolicyGate, Principal, RequestMeta, Sanitizer, StringSanitizer,
-    Tainted, actions,
+    actions, Authenticated, Authorized, PolicyGate, Principal, RequestMeta, Sanitizer,
+    StringSanitizer, Tainted,
 };
 use proptest::prelude::*;
 

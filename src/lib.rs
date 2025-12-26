@@ -42,7 +42,7 @@
 //! ```
 
 #![forbid(unsafe_code)]
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 
 pub mod audit;
 mod capability;
@@ -62,13 +62,13 @@ mod tainted;
 mod verified;
 pub mod web;
 
-pub use capability::{HttpCap, LogCap, log_with_capability};
+pub use capability::{log_with_capability, HttpCap, LogCap};
 pub use context::Ctx;
 pub use error::{Error, Violation, ViolationKind};
 pub use gate::PolicyGate;
 pub use http::{HttpMethod, HttpRequest, PolicyHttp};
 pub use logging::PolicyLog;
-pub use policy::{Authenticated, Authorized, actions};
+pub use policy::{actions, Authenticated, Authorized};
 pub use request::{Principal, RequestMeta};
 pub use sanitizer::{
     AcceptAllSanitizer, RejectAllSanitizer, SanitizationError, SanitizationErrorKind, Sanitizer,

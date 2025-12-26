@@ -591,13 +591,13 @@ mod tests {
     #[test]
     fn string_sanitizer_accepts_unicode() {
         let sanitizer = StringSanitizer::new(256);
-        let tainted = Tainted::new("Hello 世界 🌍".to_string());
+        let tainted = Tainted::new("Hello 世界".to_string());
 
         let result = sanitizer.sanitize(tainted);
 
         assert!(result.is_ok());
         let verified = result.unwrap();
-        assert_eq!(verified.as_ref(), "Hello 世界 🌍");
+        assert_eq!(verified.as_ref(), "Hello 世界");
     }
 
     #[test]

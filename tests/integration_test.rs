@@ -1,7 +1,7 @@
 use policy_core::{
+    audit::{AuditEvent, AuditEventKind, AuditOutcome, AuditTrail},
     Authenticated, Authorized, HttpMethod, PolicyGate, Principal, RequestMeta, Sanitizer, Secret,
     StringSanitizer, Tainted, ViolationKind,
-    audit::{AuditEvent, AuditEventKind, AuditOutcome, AuditTrail},
 };
 use std::sync::{Arc, Mutex};
 
@@ -252,7 +252,7 @@ fn ctx_log_fails_without_log_cap() {
 
 #[test]
 fn policy_log_redacts_secrets() {
-    use tracing_subscriber::{Layer, layer::SubscriberExt};
+    use tracing_subscriber::{layer::SubscriberExt, Layer};
 
     // Capture log output
     let captured = Arc::new(Mutex::new(Vec::new()));

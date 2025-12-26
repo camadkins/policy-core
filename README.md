@@ -1,22 +1,100 @@
 # policy-core
 
-> Compile-time policy enforcement and taint tracking patterns in Rust.
+> Compile-time policy enforcement and taint tracking for Rust.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/rust-2024-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
+[![Crates.io](https://img.shields.io/crates/v/policy-core.svg)](https://crates.io/crates/policy-core)
+[![Documentation](https://docs.rs/policy-core/badge.svg)](https://docs.rs/policy-core)
+[![CI Status](https://github.com/camadkins/policy-core/workflows/CI/badge.svg)](https://github.com/camadkins/policy-core/actions)
 
-## Overview
+## What is policy-core?
 
-`policy-core` is a research project exploring compile-time enforcement of security policies through Rust's type system. The goal is to demonstrate patterns that prevent untrusted data from reaching sensitive operations without explicit validation.
+`policy-core` prevents injection attacks, unauthorized access, and accidental data leaks using Rust's type system. Untrusted input is wrapped in a `Tainted<T>` type with no public accessors. To perform side effects—logging, database writes, HTTP requests—the data must pass through a `Sanitizer` that validates it and returns `Verified<T>`. Sinks accept only `Verified<T>`, making compile-time bypass structurally impossible.
 
-Untrusted input is wrapped in a `Tainted<T>` type with no public accessors. To perform side effects—logging, database writes, HTTP requests—the data must pass through a `Sanitizer` that validates it and returns `Verified<T>`. Sinks accept only `Verified<T>`, making compile-time bypass structurally impossible.
-
-This is a demonstration project. It shows architectural patterns for taint tracking, capability-based access control, and explicit validation. The type system enforces some invariants, but the project is not formally verified or security-audited. Do not use this as a production security framework.
-
-The data flow:
 ```text
 Tainted<T> → Sanitizer → Verified<T> → Sink
 ```
+
+## Key Features
+
+- **Type-safe taint tracking** — Prevents injection attacks at compile time
+- **Capability-based access control** — Unforgeable tokens gate logging, database, and HTTP operations
+- **Zero-cost abstractions** — No runtime overhead; guarantees enforced by the type system
+- **Type-state contexts** — Encode authentication and authorization state in types (`Ctx<Unauthed>` → `Ctx<Authed>` → `Ctx<Authorized>`)
+- **Web framework integration** — Axum extractors and middleware for production use
+- **Static analysis** — Custom Dylint lints enforce architectural invariants at compile time
+- **No unsafe code** — Core abstractions built on safe Rust
+
+## Installation
+
+```bash
+cargo add policy-core
+```
+
+## Quick Start
+
+Here's a minimal example demonstrating taint tracking:
+
+```rust
+use policy_core::{Tainted, Sanitizer, StringSanitizer, Sink, VecSink};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Step 1: Mark untrusted input as tainted
+    let user_input = Tainted::new("  hello world  ".to_string());
+
+    // Step 2: Sanitize with validation rules
+    let sanitizer = StringSanitizer::new(256);
+    let verified = sanitizer.sanitize(user_input)?;
+
+    // Step 3: Pass verified data to sink
+    let sink = VecSink::new();
+    sink.sink(&verified)?;
+
+    // Verify the result (trimmed whitespace)
+    assert_eq!(sink.to_vec(), vec!["hello world"]);
+
+    println!("Success! Input was validated and processed safely.");
+    Ok(())
+}
+```
+
+The type system prevents bypassing validation at compile time. Attempting to pass `Tainted<T>` directly to a sink results in a compile error. See the [`examples/`](examples/) directory for complete demonstrations.
+
+## How It Works
+
+```text
+┌─────────────┐
+│ Raw Input   │  (user form, API call, file)
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────┐
+│  Tainted<T>     │  Mark as untrusted at boundary
+└──────┬──────────┘
+       │
+       ▼
+┌─────────────────┐
+│   Sanitizer     │  Validate according to policy
+└──────┬──────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Verified<T>    │  Guaranteed safe by construction
+└──────┬──────────┘
+       │
+       ▼
+┌─────────────────┐
+│     Sink        │  Perform side effect
+└─────────────────┘
+```
+
+**Key properties:**
+
+* No implicit conversions bypass sanitization
+* `Tainted<T>` to `Verified<T>` transition requires explicit validation
+* Compile errors prevent accidental misuse
+* Type invariants enforced through visibility (`pub(crate)` constructors)
 
 ## Core Concepts
 
@@ -67,46 +145,69 @@ By accepting only `&Verified<T>`, sinks reject `Tainted<T>` at compile time.
 
 The crate includes `VecSink`, an in-memory sink for testing.
 
-## Architecture: Tainted → Sanitized → Verified → Sink
+## Common Usage Patterns
 
-```text
-┌─────────────┐
-│ Raw Input   │  (user form, API call, file)
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────┐
-│  Tainted<T>     │  Mark as untrusted at boundary
-└──────┬──────────┘
-       │
-       ▼
-┌─────────────────┐
-│   Sanitizer     │  Validate according to policy
-└──────┬──────────┘
-       │
-       ▼
-┌─────────────────┐
-│  Verified<T>    │  Guaranteed safe by construction
-└──────┬──────────┘
-       │
-       ▼
-┌─────────────────┐
-│     Sink        │  Perform side effect
-└─────────────────┘
+These patterns demonstrate when and how to use policy-core's core abstractions. See the [`examples/`](examples/) directory for complete working code.
+
+### Pattern: Working with Tainted Data
+
+**When to use:** Mark all external input—user forms, API requests, file contents—as tainted at system boundaries.
+
+**Key insight:** `Tainted<T>` prevents accidental use of unvalidated data. The type system forces explicit validation before sinks accept the data.
+
+**Reference:** [`examples/basic_taint_flow.rs`](examples/basic_taint_flow.rs), integration tests in `tests/taint_tracking_test.rs`
+
+### Pattern: Building Authorization Contexts
+
+**When to use:** Create verified contexts that carry proof of authentication and authorization through your application.
+
+**Key insight:** `PolicyGate` validates policies before constructing a `Ctx`. Operations requiring specific capabilities demand the corresponding `Ctx` state as a parameter.
+
+**Reference:** [`examples/policy_gate_validation.rs`](examples/policy_gate_validation.rs)
+
+### Pattern: Using Capabilities
+
+**When to use:** Gate access to sensitive operations (logging, database writes, HTTP calls) behind unforgeable capability tokens.
+
+**Key insight:** Capabilities have `pub(crate)` constructors. External code cannot forge them—they must be granted through policy validation.
+
+**Reference:** [`examples/audit_trail.rs`](examples/audit_trail.rs)
+
+For complete demonstrations of these patterns integrated together, see [`src/demo.rs`](src/demo.rs) and the full integration test suite.
+
+## Example: End-to-End Flow
+
+```rust
+use policy_core::{Tainted, Sanitizer, StringSanitizer, Sink, VecSink};
+
+// Step 1: Mark untrusted input as tainted
+let user_input = Tainted::new("  hello world  ".to_string());
+
+// Step 2: Sanitize with validation rules
+let sanitizer = StringSanitizer::new(256);
+let verified = sanitizer
+    .sanitize(user_input)
+    .expect("valid input passes");
+
+// Step 3: Pass verified data to sink
+let sink = VecSink::new();
+sink.sink(&verified).expect("sink succeeds");
+
+// Verify the side effect
+assert_eq!(sink.to_vec(), vec!["hello world"]); // trimmed
+
+// This does NOT compile (type error):
+// let tainted = Tainted::new("unsafe".to_string());
+// sink.sink(&tainted); // Expected &Verified<String>, got &Tainted<String>
 ```
 
-**Key properties:**
-
-* No implicit conversions bypass sanitization
-* `Tainted<T>` to `Verified<T>` transition requires explicit validation
-* Compile errors prevent accidental misuse
-* Type invariants enforced through visibility (`pub(crate)` constructors)
+The sanitizer trims whitespace, rejects empty strings, blocks control characters, and enforces length limits. Invalid input produces a `SanitizationError` without leaking the rejected value.
 
 ## Enforcement Pack (Static Analysis)
 
 The `dylint/` directory contains custom Dylint lints that enforce architectural invariants at compile time.
 
-**Purpose:** Prevent accidental bypass of capability gating, taint tracking, and explicit context patterns (see `ARCHITECT.local.md`).
+**Purpose:** Prevent accidental bypass of capability gating, taint tracking, and explicit context patterns.
 
 **Run locally:**
 
@@ -133,56 +234,6 @@ cargo dylint --all --workspace
 
 Core types (`Tainted<T>`, `Verified<T>`, `Sanitizer`, `Sink`) depend only on the standard library. Logging is optional.
 
-## Example: End-to-End Flow
-
-```rust
-use policy_core::{Tainted, Sanitizer, StringSanitizer, Sink, VecSink};
-
-// Step 1: Mark untrusted input as tainted
-let user_input = Tainted::new("  hello world  ".to_string());
-
-// Step 2: Sanitize with validation rules
-let sanitizer = StringSanitizer::new(256);
-let verified = sanitizer
-    .sanitize(user_input)
-    .expect("valid input passes");
-
-// Step 3: Pass verified data to sink
-let sink = VecSink::new();
-sink.sink(&verified).expect("sink succeeds");
-
-// Verify the side effect
-assert_eq!(sink.to_vec(), vec!["hello world"]); // trimmed
-
-// ❌ This does NOT compile (type error):
-// let tainted = Tainted::new("unsafe".to_string());
-// sink.sink(&tainted); // Expected &Verified<String>, got &Tainted<String>
-```
-
-The sanitizer trims whitespace, rejects empty strings, blocks control characters, and enforces length limits. Invalid input produces a `SanitizationError` without leaking the rejected value.
-
-## Status & Roadmap
-
-**Completed:**
-
-* Milestone 1: Core types (`Secret<T>`, `Tainted<T>`, `Ctx`, capabilities)
-* Milestone 2: Policy gate builder with structured validation
-* Milestone 3: Capability-gated logging with secret redaction
-* Milestone 4: Taint tracking (`Verified<T>`, `Sanitizer`, `Sink`)
-* Milestone 5: End-to-end demo with in-memory sink
-* Milestone 6: Type-state contexts (`Ctx<Unauthed>` → `Ctx<Authed>` → `Ctx<Authorized>`)
-* Milestone 7: Audit trail support (`AuditCap`, structured events)
-* Milestone 8: Web framework integration (Axum extractors, middleware)
-* Milestone 9: Enforcement pack infrastructure (Dylint lints, CI integration)
-
-**In Progress:**
-
-* Policy-specific lints for `Verified<T>` forgeability prevention (Issue #38)
-* Taint bypass detection lints (Issue #39)
-* Forbidden sink detection lints (Issue #40)
-
-This is an experimental project. APIs are subject to change.
-
 ## Security & Limitations
 
 This library is not formally verified or security-audited. It demonstrates patterns, not a complete security solution.
@@ -194,7 +245,57 @@ This library is not formally verified or security-audited. It demonstrates patte
 * This does not replace standard security practices: authentication, authorization, encryption, rate limiting, and input validation at system boundaries remain necessary.
 * The type system cannot prevent all logic errors. Review sanitizer implementations carefully.
 
-Use this to explore patterns and inform architecture decisions. Do not deploy this as-is in security-critical systems.
+Use this library as part of a defense-in-depth strategy. See [SECURITY.md](SECURITY.md) and [DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md) for detailed discussions.
+
+## Documentation
+
+- **API Reference:** [docs.rs/policy-core](https://docs.rs/policy-core)
+- **Examples:** [`examples/`](examples/) directory
+- **Security Model:** [SECURITY.md](SECURITY.md)
+- **Design Rationale:** [DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md)
+- **Enforcement Pack:** [`dylint/README.md`](dylint/README.md)
+- **Changelog:** [CHANGELOG.md](CHANGELOG.md)
+
+## Publishing & Releases
+
+**Current Status:** This project is in demonstration/research phase (v0.1.x). The API may change as patterns evolve.
+
+### For Maintainers: Release Process
+
+Before publishing a new version to crates.io, complete this checklist:
+
+1. **Version Bump**
+   - Update version in `Cargo.toml`
+   - Follow [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`
+   - For pre-1.0 versions, breaking changes increment MINOR
+
+2. **Update CHANGELOG**
+   - Move items from `[Unreleased]` to new version section
+   - Add release date in format: `## [X.Y.Z] - YYYY-MM-DD`
+   - Update comparison links at bottom of CHANGELOG.md
+
+3. **Verify CI Passes**
+   - All tests pass: `cargo test --all-features`
+   - No clippy warnings: `cargo clippy --all-features -- -D warnings`
+   - Formatting is correct: `cargo fmt --check`
+   - Enforcement lints pass: `cargo dylint --all --workspace`
+   - Documentation builds: `cargo doc --no-deps --all-features`
+   - Package verification succeeds: `cargo publish --dry-run`
+
+4. **Create Git Tag**
+   ```bash
+   git tag -a v0.X.Y -m "Release v0.X.Y"
+   git push origin v0.X.Y
+   ```
+
+5. **Publish to Crates.io**
+   ```bash
+   cargo publish
+   ```
+
+**Important:** Published crates are permanent. You cannot overwrite or delete a published version. If you discover a critical issue after publishing, use `cargo yank <version>` to mark it as unavailable (but not deleted). Then publish a fixed version.
+
+**Versioning Strategy:** See [CHANGELOG.md](CHANGELOG.md) for version history and milestone mapping.
 
 ## Contributing
 

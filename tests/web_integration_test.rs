@@ -6,7 +6,7 @@
 use policy_core::web::example_handler::{
     handle_admin_action, handle_api_call, handle_public_search, handle_user_data,
 };
-use policy_core::web::{ExtractMetadata, RequestAdapter, extract_authed, extract_unauthed};
+use policy_core::web::{extract_authed, extract_unauthed, ExtractMetadata, RequestAdapter};
 use policy_core::{Authenticated, Authorized, PolicyGate, Principal, Sanitizer, StringSanitizer};
 
 #[test]

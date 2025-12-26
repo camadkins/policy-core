@@ -3,7 +3,7 @@ use crate::{
     capability::{HttpCap, LogCap},
     context::Ctx,
     error::{Violation, ViolationKind},
-    policy::{PolicyReq, actions},
+    policy::{actions, PolicyReq},
     request::RequestMeta,
     state::Authorized,
 };

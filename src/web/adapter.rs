@@ -2,8 +2,8 @@
 
 use std::collections::HashMap;
 
-use crate::Tainted;
 use crate::request::{Principal, RequestMeta};
+use crate::Tainted;
 
 use super::{ExtractMetadata, ExtractTaintedInputs};
 
