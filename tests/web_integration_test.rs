@@ -161,11 +161,7 @@ fn flow_sanitization_required_for_sinks() {
         .expect("authorized");
 
     // 3. Must sanitize before using in sink
-    let tainted_name = extraction
-        .inputs
-        .get_query("name")
-        .unwrap()
-        .clone();
+    let tainted_name = extraction.inputs.get_query("name").unwrap().clone();
 
     let sanitizer = StringSanitizer::new(100).unwrap();
     let verified_name = sanitizer.sanitize(tainted_name).expect("valid");

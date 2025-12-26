@@ -191,8 +191,10 @@ jobs:
       - name: Build enforcement pack libraries
         run: |
           cd dylint
-          # Set LD_LIBRARY_PATH to include nightly toolchain's lib directory for LLVM linking
-          export LD_LIBRARY_PATH="$(rustc +nightly --print sysroot)/lib:${LD_LIBRARY_PATH:-}"
+          # Set linker library path for LLVM linking
+          SYSROOT=$(rustc +nightly --print sysroot)
+          export LD_LIBRARY_PATH="$SYSROOT/lib:${LD_LIBRARY_PATH:-}"
+          export RUSTFLAGS="-L $SYSROOT/lib -C link-arg=-Wl,-rpath,$SYSROOT/lib"
           cargo +nightly build --release
 
       - name: Run enforcement pack lints
