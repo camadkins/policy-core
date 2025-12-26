@@ -438,7 +438,7 @@ fn policy_http_accepts_verified_urls() {
         .expect("should pass");
 
     let http = ctx.http().expect("HttpCap granted");
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
 
     // Sanitize tainted URL
     let tainted_url = Tainted::new("https://api.example.com/users".to_string());
@@ -470,7 +470,7 @@ fn policy_http_accepts_verified_post_body() {
         .expect("should pass");
 
     let http = ctx.http().expect("HttpCap granted");
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
 
     // Sanitize tainted URL and body
     let tainted_url = Tainted::new("https://api.example.com/users".to_string());
@@ -530,7 +530,7 @@ fn policy_http_does_not_leak_body_in_metadata() {
         .expect("should pass");
 
     let http = ctx.http().expect("HttpCap granted");
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
 
     let url = Tainted::new("https://api.example.com".to_string());
     let verified_url = sanitizer.sanitize(url).expect("valid");
@@ -572,7 +572,7 @@ fn policy_http_end_to_end_flow() {
     let http = ctx.http().expect("HttpCap should be granted");
 
     // 3. Create sanitizer
-    let sanitizer = StringSanitizer::new(1024);
+    let sanitizer = StringSanitizer::new(1024).unwrap();
 
     // 4. Sanitize tainted inputs
     let tainted_url = Tainted::new("  https://api.example.com/users/1  ".to_string());
@@ -636,7 +636,7 @@ fn milestone_5_complete() {
         .expect("M5 complete");
 
     let http = ctx.http().expect("HttpCap granted");
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
 
     let url = Tainted::new("https://example.com".to_string());
     let verified_url = sanitizer.sanitize(url).expect("valid");
@@ -774,7 +774,7 @@ fn typestate_end_to_end_with_policy_gate() {
     let secret = Secret::new("api-key-12345");
     logger.info(format_args!("Processing request with key: {:?}", secret));
 
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
     let url = Tainted::new("https://api.example.com/data".to_string());
     let verified_url = sanitizer.sanitize(url).expect("valid URL");
 
@@ -923,7 +923,7 @@ fn admin_action_emits_audit_trail() {
     let user_id_input = Tainted::new("user-12345".to_string());
 
     // 2. Sanitize the input
-    let sanitizer = StringSanitizer::new(64);
+    let sanitizer = StringSanitizer::new(64).unwrap();
     let verified_user_id = sanitizer.sanitize(user_id_input).expect("valid user ID");
 
     // 3. Create request metadata with principal

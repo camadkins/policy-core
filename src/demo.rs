@@ -99,7 +99,7 @@ fn process_user_input(raw_input: &str) -> Result<Vec<String>, String> {
     // Step 2: SANITIZATION
     // Use a real sanitizer to validate and promote to Verified<T>
     // This is the ONLY way to create Verified<T> from Tainted<T>
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
     let verified = sanitizer
         .sanitize(tainted)
         .map_err(|e| format!("Sanitization failed: {}", e))?;
@@ -150,7 +150,7 @@ fn process_user_input(raw_input: &str) -> Result<Vec<String>, String> {
 /// ```
 #[allow(dead_code)]
 fn batch_process_inputs(raw_inputs: &[&str]) -> (Vec<String>, Vec<String>) {
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
     let sink = VecSink::new();
 
     let mut failures = Vec::new();
@@ -286,7 +286,7 @@ fn process_http_request(user_id: &str, raw_url: &str, raw_body: &str) -> Result<
 
     // Step 4: SANITIZATION
     // Use a real sanitizer to validate and promote to Verified<T>
-    let sanitizer = StringSanitizer::new(1024);
+    let sanitizer = StringSanitizer::new(1024).unwrap();
     let verified_url = sanitizer
         .sanitize(tainted_url)
         .map_err(|e| format!("URL sanitization failed: {}", e))?;
@@ -431,7 +431,7 @@ mod tests {
         //
         // The type system prevents these calls at compile time.
         // Only this works:
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
         let tainted = Tainted::new("safe".to_string());
         let verified = sanitizer.sanitize(tainted).unwrap();
         let sink = VecSink::new();

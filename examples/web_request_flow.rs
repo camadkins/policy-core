@@ -73,7 +73,7 @@ fn handle_user_input_request(
     println!("3. ✓ Policies validated");
 
     // Step 4: Sanitize input
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
     let verified_input = sanitizer.sanitize(tainted_input)?;
     println!("4. ✓ Input sanitized");
     println!("   Verified: {:?}", verified_input.as_ref());

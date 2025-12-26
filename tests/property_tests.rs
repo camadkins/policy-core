@@ -146,7 +146,7 @@ proptest! {
             1..3
         )
     ) {
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
 
         // Test 1: All sanitizers should reject empty/whitespace-only strings
         let tainted_empty = Tainted::new(empty_string.clone());

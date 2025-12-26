@@ -70,10 +70,11 @@ pub use http::{HttpMethod, HttpRequest, PolicyHttp};
 pub use logging::PolicyLog;
 pub use policy::{actions, Authenticated, Authorized};
 pub use request::{Principal, RequestMeta};
-pub use sanitizer::{
-    AcceptAllSanitizer, RejectAllSanitizer, SanitizationError, SanitizationErrorKind, Sanitizer,
-    StringSanitizer,
-};
+pub use sanitizer::{SanitizationError, SanitizationErrorKind, Sanitizer, StringSanitizer};
+
+// Test-only sanitizers (issue #83: AcceptAllSanitizer is publicly accessible)
+#[cfg(test)]
+pub use sanitizer::{AcceptAllSanitizer, RejectAllSanitizer};
 pub use secret::Secret;
 pub use sink::{Sink, SinkError, SinkErrorKind, VecSink};
 pub use state::{Authed, Authorized as AuthorizedState, Unauthed};

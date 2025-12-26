@@ -129,7 +129,27 @@ pub struct AuditEvent {
 }
 
 impl AuditEvent {
+    /// Sanitizes a string field for safe logging by removing control characters.
+    ///
+    /// Replaces control characters with a space to prevent log injection attacks (CWE-117).
+    /// See issue #81: Audit fields logged without sanitization.
+    fn sanitize_field(value: String) -> String {
+        value
+            .chars()
+            .map(|c| {
+                if c.is_control() || c == '\u{007F}' {
+                    ' ' // Replace control chars with space
+                } else {
+                    c
+                }
+            })
+            .collect()
+    }
+
     /// Creates a new audit event with required fields.
+    ///
+    /// All string fields are sanitized to remove control characters that could
+    /// enable log injection attacks.
     ///
     /// # Arguments
     ///
@@ -157,8 +177,8 @@ impl AuditEvent {
         outcome: AuditOutcome,
     ) -> Self {
         Self {
-            request_id: request_id.into(),
-            principal: principal.map(Into::into),
+            request_id: Self::sanitize_field(request_id.into()),
+            principal: principal.map(|p| Self::sanitize_field(p.into())),
             kind,
             outcome,
             action: None,
@@ -170,28 +190,36 @@ impl AuditEvent {
     }
 
     /// Sets the specific action being performed.
+    ///
+    /// Input is sanitized to remove control characters.
     pub fn with_action(mut self, action: impl Into<String>) -> Self {
-        self.action = Some(action.into());
+        self.action = Some(Self::sanitize_field(action.into()));
         self
     }
 
     /// Sets the resource identifier.
     ///
+    /// Input is sanitized to remove control characters.
+    ///
     /// SAFETY: Caller must ensure this does not contain sensitive data.
     pub fn with_resource_id(mut self, resource_id: impl Into<String>) -> Self {
-        self.resource_id = Some(resource_id.into());
+        self.resource_id = Some(Self::sanitize_field(resource_id.into()));
         self
     }
 
     /// Sets the HTTP method.
+    ///
+    /// Input is sanitized to remove control characters.
     pub fn with_method(mut self, method: impl Into<String>) -> Self {
-        self.method = Some(method.into());
+        self.method = Some(Self::sanitize_field(method.into()));
         self
     }
 
     /// Sets a redacted URL (no sensitive query parameters).
+    ///
+    /// Input is sanitized to remove control characters.
     pub fn with_redacted_url(mut self, url: impl Into<String>) -> Self {
-        self.redacted_url = Some(url.into());
+        self.redacted_url = Some(Self::sanitize_field(url.into()));
         self
     }
 
@@ -443,5 +471,110 @@ mod tests {
         // Type safety prevents these mistakes at compile time.
         // Developers MUST explicitly call secret.expose() to bypass the wrapper,
         // making leakage intentional and visible in code review.
+    }
+
+    // Tests for field sanitization (issue #81)
+
+    #[test]
+    fn audit_event_sanitizes_request_id_newline() {
+        let event = AuditEvent::new(
+            "req-123\nmalicious",
+            None::<String>,
+            AuditEventKind::SecurityEvent,
+            AuditOutcome::Denied,
+        );
+
+        // Newline should be replaced with space
+        assert!(!event.request_id().contains('\n'));
+        assert_eq!(event.request_id(), "req-123 malicious");
+    }
+
+    #[test]
+    fn audit_event_sanitizes_principal_control_chars() {
+        let event = AuditEvent::new(
+            "req-456",
+            Some("user@example.com\r\nmalicious"),
+            AuditEventKind::Authentication,
+            AuditOutcome::Success,
+        );
+
+        // Control characters should be replaced
+        let principal = event.principal().unwrap();
+        assert!(!principal.contains('\r'));
+        assert!(!principal.contains('\n'));
+        assert_eq!(principal, "user@example.com  malicious");
+    }
+
+    #[test]
+    fn audit_event_sanitizes_action_field() {
+        let event = AuditEvent::new(
+            "req-789",
+            None::<String>,
+            AuditEventKind::AdminAction,
+            AuditOutcome::Success,
+        )
+        .with_action("delete\nuser");
+
+        assert_eq!(event.action(), Some("delete user"));
+        assert!(!event.action().unwrap().contains('\n'));
+    }
+
+    #[test]
+    fn audit_event_sanitizes_resource_id() {
+        let event = AuditEvent::new(
+            "req-101",
+            None::<String>,
+            AuditEventKind::ResourceAccess,
+            AuditOutcome::Success,
+        )
+        .with_resource_id("file\x00path");
+
+        let resource_id = event.resource_id().unwrap();
+        assert!(!resource_id.contains('\x00'));
+        assert_eq!(resource_id, "file path");
+    }
+
+    #[test]
+    fn audit_event_sanitizes_method_field() {
+        let event = AuditEvent::new(
+            "req-202",
+            None::<String>,
+            AuditEventKind::ResourceAccess,
+            AuditOutcome::Success,
+        )
+        .with_method("GET\r\nHEADER");
+
+        assert_eq!(event.method(), Some("GET  HEADER"));
+    }
+
+    #[test]
+    fn audit_event_sanitizes_url_field() {
+        let event = AuditEvent::new(
+            "req-303",
+            None::<String>,
+            AuditEventKind::ResourceAccess,
+            AuditOutcome::Success,
+        )
+        .with_redacted_url("/api/path\ninjected");
+
+        assert_eq!(event.redacted_url(), Some("/api/path injected"));
+    }
+
+    #[test]
+    fn audit_event_preserves_safe_characters() {
+        let event = AuditEvent::new(
+            "req-safe-chars",
+            Some("user@example.com"),
+            AuditEventKind::Authentication,
+            AuditOutcome::Success,
+        )
+        .with_action("login:success")
+        .with_resource_id("user-123-abc_def");
+
+        // Safe characters should be preserved
+        assert_eq!(event.request_id(), "req-safe-chars");
+        assert_eq!(event.principal(), Some("user@example.com"));
+        assert_eq!(event.action(), Some("login:success"));
+        assert_eq!(event.resource_id(), Some("user-123-abc_def"));
     }
 }

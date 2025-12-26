@@ -46,7 +46,7 @@
 //!     .build()?;
 //!
 //! // 3. Sanitize inputs
-//! let sanitizer = StringSanitizer::new(256);
+//! let sanitizer = StringSanitizer::new(256).unwrap();
 //! let verified_name = sanitizer.sanitize(inputs.get("name").unwrap().clone())?;
 //!
 //! // 4. Perform authorized operation

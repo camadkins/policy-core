@@ -105,7 +105,7 @@ impl fmt::Display for SinkErrorKind {
 /// use policy_core::{Tainted, Verified, Sanitizer, Sink, VecSink, StringSanitizer};
 ///
 /// let sink = VecSink::new();
-/// let sanitizer = StringSanitizer::new(256);
+/// let sanitizer = StringSanitizer::new(256).unwrap();
 ///
 /// // Tainted input must be sanitized first
 /// let tainted = Tainted::new("hello world".to_string());
@@ -191,7 +191,7 @@ pub trait Sink<T> {
 /// use policy_core::{Tainted, Verified, Sanitizer, Sink, VecSink, StringSanitizer};
 ///
 /// let sink = VecSink::new();
-/// let sanitizer = StringSanitizer::new(256);
+/// let sanitizer = StringSanitizer::new(256).unwrap();
 ///
 /// // Sanitize and sink verified values
 /// let tainted = Tainted::new("  hello  ".to_string());
@@ -377,7 +377,7 @@ mod tests {
     #[test]
     fn vec_sink_with_sanitizer() {
         let sink = VecSink::new();
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
 
         // Sanitize tainted input
         let tainted = Tainted::new("  hello world  ".to_string());
@@ -427,7 +427,7 @@ mod tests {
     #[test]
     fn vec_sink_preserves_sanitization() {
         let sink = VecSink::new();
-        let sanitizer = StringSanitizer::new(50);
+        let sanitizer = StringSanitizer::new(50).unwrap();
 
         // Create multiple tainted inputs that need sanitization
         let inputs = vec!["  one  ", "  two  ", "  three  "];
