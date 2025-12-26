@@ -138,8 +138,8 @@ pub trait Sink<T> {
     /// // Only verified values can be sunk
     /// sink.sink(&verified).expect("should succeed");
     /// ```
-    /// BREAKING CHANGE WARNING: This signature MUST accept &Verified<T>, not &T or &Tainted<T>.
-    /// Changing it to accept &T or &Tainted<T> bypasses validation and enables injection attacks
+    /// BREAKING CHANGE WARNING: This signature MUST accept `&Verified<T>`, not `&T` or `&Tainted<T>`.
+    /// Changing it to accept `&T` or `&Tainted<T>` bypasses validation and enables injection attacks
     /// (CWE-74, CWE-89, CWE-117, CWE-79).
     fn sink(&self, value: &Verified<T>) -> Result<(), SinkError>;
 

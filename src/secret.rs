@@ -62,16 +62,16 @@ impl<T> Secret<T> {
 // The ONLY access should be through expose_secret(), which has an intentionally scary name.
 
 impl<T> fmt::Debug for Secret<T> {
-    /// BREAKING CHANGE WARNING: This MUST unconditionally return "[REDACTED]".
+    /// BREAKING CHANGE WARNING: This MUST unconditionally return "\[REDACTED\]".
     /// Changing this to show the actual value (even in debug builds) defeats the
-    /// entire purpose of Secret<T> and enables accidental secret exposure in logs (CWE-532).
+    /// entire purpose of `Secret<T>` and enables accidental secret exposure in logs (CWE-532).
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("[REDACTED]")
     }
 }
 
 impl<T> fmt::Display for Secret<T> {
-    /// BREAKING CHANGE WARNING: This MUST unconditionally return "[REDACTED]".
+    /// BREAKING CHANGE WARNING: This MUST unconditionally return "\[REDACTED\]".
     /// Changing this to show the actual value exposes secrets in user-facing output,
     /// error messages, and logs (CWE-532: Insertion of Sensitive Information into Log File).
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
