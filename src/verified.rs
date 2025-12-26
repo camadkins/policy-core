@@ -213,7 +213,7 @@ mod tests {
             /// Property: Valid input survives the Tainted → Sanitizer → Verified flow
             #[test]
             fn proptest_tainted_to_verified_preserves_valid_data(input in arb_valid_string(256)) {
-                let sanitizer = StringSanitizer::new(256);
+                let sanitizer = StringSanitizer::new(256).unwrap();
                 let tainted = Tainted::new(input.clone());
 
                 // Sanitize the tainted input

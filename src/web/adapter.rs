@@ -57,10 +57,47 @@ pub struct RequestAdapter {
 }
 
 impl RequestAdapter {
+    /// Validates that a request ID is safe for logging.
+    ///
+    /// Rejects request IDs containing control characters that could enable
+    /// log injection attacks (CWE-117).
+    fn validate_request_id(request_id: &str) -> Result<(), String> {
+        // Check for control characters or non-printable characters
+        if request_id
+            .chars()
+            .any(|c| c.is_control() || c == '\u{007F}')
+        {
+            return Err(format!(
+                "request_id contains control characters (length: {})",
+                request_id.len()
+            ));
+        }
+
+        // Enforce reasonable length to prevent DoS
+        if request_id.is_empty() {
+            return Err("request_id cannot be empty".to_string());
+        }
+
+        if request_id.len() > 256 {
+            return Err(format!(
+                "request_id exceeds maximum length of 256 (got: {})",
+                request_id.len()
+            ));
+        }
+
+        Ok(())
+    }
+
     /// Creates a new request adapter with the given request ID.
     ///
     /// All other fields are initialized as empty. Use builder-style methods
     /// to populate them.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the request_id contains control characters, is empty, or exceeds
+    /// 256 characters. This is a programming error that should be caught during
+    /// development.
     ///
     /// # Examples
     ///
@@ -70,6 +107,11 @@ impl RequestAdapter {
     /// let adapter = RequestAdapter::new("req-001".to_string());
     /// ```
     pub fn new(request_id: String) -> Self {
+        // Validate request_id to prevent log injection (issue #80)
+        if let Err(e) = Self::validate_request_id(&request_id) {
+            panic!("Invalid request_id: {}", e);
+        }
+
         Self {
             request_id,
             principal: None,
@@ -169,7 +211,7 @@ impl ExtractTaintedInputs for RequestAdapter {
 /// let tainted_username = inputs.query_params().get("username").unwrap();
 ///
 /// // Must sanitize before use
-/// let sanitizer = StringSanitizer::new(50);
+/// let sanitizer = StringSanitizer::new(50).unwrap();
 /// let verified_username = sanitizer.sanitize(tainted_username.clone()).unwrap();
 /// ```
 #[derive(Debug, Clone)]
@@ -303,5 +345,51 @@ mod tests {
 
         // Both should have the same data
         assert_eq!(inputs1.query_params().len(), inputs2.query_params().len());
+    }
+
+    // Tests for request_id validation (issue #80)
+
+    #[test]
+    fn request_adapter_accepts_valid_request_id() {
+        let adapter = RequestAdapter::new("req-12345".to_string());
+        assert_eq!(adapter.request_id(), "req-12345");
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid request_id")]
+    fn request_adapter_rejects_newline_in_request_id() {
+        let _adapter = RequestAdapter::new("req-123\nmalicious".to_string());
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid request_id")]
+    fn request_adapter_rejects_carriage_return_in_request_id() {
+        let _adapter = RequestAdapter::new("req-123\rmalicious".to_string());
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid request_id")]
+    fn request_adapter_rejects_null_byte_in_request_id() {
+        let _adapter = RequestAdapter::new("req-123\0".to_string());
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid request_id")]
+    fn request_adapter_rejects_empty_request_id() {
+        let _adapter = RequestAdapter::new("".to_string());
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid request_id")]
+    fn request_adapter_rejects_too_long_request_id() {
+        let long_id = "a".repeat(257);
+        let _adapter = RequestAdapter::new(long_id);
+    }
+
+    #[test]
+    fn request_adapter_accepts_max_length_request_id() {
+        let max_id = "a".repeat(256);
+        let adapter = RequestAdapter::new(max_id.clone());
+        assert_eq!(adapter.request_id(), &max_id);
     }
 }

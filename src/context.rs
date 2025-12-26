@@ -345,7 +345,7 @@ impl Ctx<Authorized> {
     /// #     .unwrap();
     /// let http = ctx.http().expect("HttpCap required");
     ///
-    /// let sanitizer = StringSanitizer::new(256);
+    /// let sanitizer = StringSanitizer::new(256).unwrap();
     /// let url = Tainted::new("https://api.example.com".to_string());
     /// let verified_url = sanitizer.sanitize(url).unwrap();
     ///

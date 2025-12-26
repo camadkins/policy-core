@@ -1,0 +1,5 @@
+/home/cam/projects/rust/policy-core/dylint/target/dylint/target/nightly-x86_64-unknown-linux-gnu/debug/build/paste-9245072c691d01c9/build_script_build-9245072c691d01c9.d: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/paste-1.0.15/build.rs
+
+/home/cam/projects/rust/policy-core/dylint/target/dylint/target/nightly-x86_64-unknown-linux-gnu/debug/build/paste-9245072c691d01c9/build_script_build-9245072c691d01c9: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/paste-1.0.15/build.rs
+
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/paste-1.0.15/build.rs:

@@ -19,8 +19,8 @@ use std::fmt;
 ///
 /// let user_input = Tainted::new("'; DROP TABLE users; --".to_string());
 ///
-/// // Debug output shows it's tainted (for development)
-/// println!("{:?}", user_input); // Tainted { inner: "'; DROP..." }
+/// // Debug output shows it's tainted but redacts the value for security
+/// println!("{:?}", user_input); // Tainted { inner: "<redacted>" }
 ///
 /// // But you CANNOT use the value directly:
 /// // let query = format!("SELECT * FROM users WHERE name = '{}'", user_input); // Won't compile!
@@ -64,10 +64,13 @@ impl<T> Tainted<T> {
 // implicit conversion traits to Tainted<T>. These would bypass the sanitization requirement
 // and allow tainted data to flow into sinks, defeating the security model entirely.
 
-impl<T: fmt::Debug> fmt::Debug for Tainted<T> {
+impl<T> fmt::Debug for Tainted<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // SECURITY: Do not expose the raw tainted value in debug output.
+        // This prevents PII leakage and log injection if debug output is captured in logs.
+        // See issue #82: Tainted::Debug prints raw untrusted input
         f.debug_struct("Tainted")
-            .field("inner", &self.inner)
+            .field("inner", &"<redacted>")
             .finish()
     }
 }
@@ -81,9 +84,11 @@ mod tests {
         let user_input = Tainted::new("malicious input".to_string());
         let debug_output = format!("{:?}", user_input);
 
-        // Debug shows it's tainted
+        // Debug shows it's tainted but redacts the actual value
         assert!(debug_output.contains("Tainted"));
-        assert!(debug_output.contains("malicious input"));
+        assert!(debug_output.contains("<redacted>"));
+        // Security: value should NOT be exposed in debug output
+        assert!(!debug_output.contains("malicious input"));
     }
 
     #[test]
@@ -122,7 +127,7 @@ mod tests {
             /// Property: Cloning a Tainted value results in identical sanitization outcomes
             #[test]
             fn proptest_tainted_clone_preserves_value(input in arb_valid_string(256)) {
-                let sanitizer = StringSanitizer::new(256);
+                let sanitizer = StringSanitizer::new(256).unwrap();
 
                 // Create tainted value and clone it
                 let tainted1 = Tainted::new(input.clone());
