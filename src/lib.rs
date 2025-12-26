@@ -68,7 +68,7 @@ pub use error::{Error, Violation, ViolationKind};
 pub use gate::PolicyGate;
 pub use http::{HttpMethod, HttpRequest, PolicyHttp};
 pub use logging::PolicyLog;
-pub use policy::{Authenticated, Authorized};
+pub use policy::{Authenticated, Authorized, actions};
 pub use request::{Principal, RequestMeta};
 pub use sanitizer::{
     AcceptAllSanitizer, RejectAllSanitizer, SanitizationError, SanitizationErrorKind, Sanitizer,

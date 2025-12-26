@@ -3,7 +3,7 @@ use crate::{
     capability::{HttpCap, LogCap},
     context::Ctx,
     error::{Violation, ViolationKind},
-    policy::PolicyReq,
+    policy::{PolicyReq, actions},
     request::RequestMeta,
     state::Authorized,
 };
@@ -123,19 +123,19 @@ impl PolicyGate {
         self.validate_all()?;
 
         // 2. Grant capabilities based on satisfied requirements
-        let log_cap = if self.requires_authorization("log") {
+        let log_cap = if self.requires_authorization(actions::LOG) {
             Some(LogCap::new())
         } else {
             None
         };
 
-        let http_cap = if self.requires_authorization("http") {
+        let http_cap = if self.requires_authorization(actions::HTTP) {
             Some(HttpCap::new())
         } else {
             None
         };
 
-        let audit_cap = if self.requires_authorization("audit") {
+        let audit_cap = if self.requires_authorization(actions::AUDIT) {
             Some(AuditCap::new())
         } else {
             None
@@ -265,11 +265,11 @@ mod proptests {
     // Strategy: Generate arbitrary action names
     fn arb_action_name() -> impl Strategy<Value = &'static str> {
         prop_oneof![
-            Just("log"),
-            Just("http"),
-            Just("audit"),
-            Just("db"),
-            Just("cache"),
+            Just(actions::LOG),
+            Just(actions::HTTP),
+            Just(actions::AUDIT),
+            Just("db"),    // Non-standard action for testing unknown capabilities
+            Just("cache"), // Non-standard action for testing unknown capabilities
         ]
     }
 
@@ -330,9 +330,9 @@ mod proptests {
 
             // Check that the corresponding capability was granted
             match action {
-                "log" => prop_assert!(ctx.log_cap().is_some()),
-                "http" => prop_assert!(ctx.http_cap().is_some()),
-                "audit" => prop_assert!(ctx.audit_cap().is_some()),
+                actions::LOG => prop_assert!(ctx.log_cap().is_some()),
+                actions::HTTP => prop_assert!(ctx.http_cap().is_some()),
+                actions::AUDIT => prop_assert!(ctx.audit_cap().is_some()),
                 _ => {
                     // For unknown actions, no capability should be granted
                     prop_assert!(ctx.log_cap().is_none());

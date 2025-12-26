@@ -5,7 +5,7 @@
 
 use policy_core::{
     Authenticated, Authorized, PolicyGate, Principal, RequestMeta, Sanitizer, StringSanitizer,
-    Tainted,
+    Tainted, actions,
 };
 use proptest::prelude::*;
 
@@ -21,11 +21,11 @@ fn arb_principal() -> impl Strategy<Value = Principal> {
 // Strategy: Generate arbitrary action names
 fn arb_action_name() -> impl Strategy<Value = &'static str> {
     prop_oneof![
-        Just("log"),
-        Just("http"),
-        Just("audit"),
-        Just("db"),
-        Just("cache"),
+        Just(actions::LOG),
+        Just(actions::HTTP),
+        Just(actions::AUDIT),
+        Just("db"),    // Non-standard action for testing unknown capabilities
+        Just("cache"), // Non-standard action for testing unknown capabilities
     ]
 }
 
@@ -52,42 +52,37 @@ proptest! {
             .require(Authorized::for_action(action));
 
         // Attempt to build context
-        let result = gate.build();
+        let build_result = gate.build();
 
-        // Flow should never panic
-        match (principal, result) {
-            (Some(_), Ok(ctx)) => {
-                // If we had a principal and build succeeded, verify capabilities
-                match action {
-                    "log" => prop_assert!(ctx.log_cap().is_some()),
-                    "http" => prop_assert!(ctx.http_cap().is_some()),
-                    "audit" => prop_assert!(ctx.audit_cap().is_some()),
-                    _ => {
-                        // Unknown actions don't grant standard capabilities
-                        prop_assert!(ctx.log_cap().is_none());
-                        prop_assert!(ctx.http_cap().is_none());
-                        prop_assert!(ctx.audit_cap().is_none());
-                    }
-                }
-            }
-            (None, Err(_)) => {
-                // No principal → should fail (expected)
-            }
-            (Some(_), Err(e)) => {
-                // Principal exists but build failed → INVARIANT VIOLATION
-                // With basic authorization, principal existence satisfies all policies
-                return Err(TestCaseError::fail(format!(
-                    "PolicyGate build failed with valid Principal present. \
-                     Expected: Principal existence satisfies authentication policies in basic authorization mode. \
-                     Error: {:?}",
-                    e
-                )));
-            }
-            (None, Ok(_)) => {
-                // No principal but build succeeded → INVARIANT VIOLATION
-                return Err(TestCaseError::fail(
-                    "Build succeeded without principal - authentication invariant violated"
-                ));
+        // Guard: No principal should fail
+        if principal.is_none() {
+            prop_assert!(
+                build_result.is_err(),
+                "Build succeeded without principal - authentication invariant violated"
+            );
+            return Ok(());
+        }
+
+        // Guard: Principal exists, build must succeed
+        let ctx = build_result.map_err(|e| {
+            TestCaseError::fail(format!(
+                "PolicyGate build failed with valid Principal present. \
+                 Expected: Principal existence satisfies authentication policies in basic authorization mode. \
+                 Error: {:?}",
+                e
+            ))
+        })?;
+
+        // Verify capability matches requested action
+        match action {
+            actions::LOG => prop_assert!(ctx.log_cap().is_some()),
+            actions::HTTP => prop_assert!(ctx.http_cap().is_some()),
+            actions::AUDIT => prop_assert!(ctx.audit_cap().is_some()),
+            _ => {
+                // Unknown actions don't grant standard capabilities
+                prop_assert!(ctx.log_cap().is_none());
+                prop_assert!(ctx.http_cap().is_none());
+                prop_assert!(ctx.audit_cap().is_none());
             }
         }
     }
@@ -155,11 +150,11 @@ proptest! {
 
         // Test 1: All sanitizers should reject empty/whitespace-only strings
         let tainted_empty = Tainted::new(empty_string.clone());
-        let result = sanitizer.sanitize(tainted_empty);
+        let empty_check = sanitizer.sanitize(tainted_empty);
 
         // Empty/whitespace-only should be rejected
         if empty_string.trim().is_empty() {
-            prop_assert!(result.is_err(), "Sanitizer should reject empty/whitespace string '{}'", empty_string);
+            prop_assert!(empty_check.is_err(), "Sanitizer should reject empty/whitespace string '{}'", empty_string);
         }
 
         // Test 2: All sanitizers should reject strings with control characters
@@ -167,10 +162,10 @@ proptest! {
         let control_string: String = control_chars.iter().collect();
         let test_string = format!("before{}after", control_string);
         let tainted_control = Tainted::new(test_string.clone());
-        let result = sanitizer.sanitize(tainted_control);
+        let control_check = sanitizer.sanitize(tainted_control);
 
         prop_assert!(
-            result.is_err(),
+            control_check.is_err(),
             "Sanitizer should reject string with control characters: '{:?}'",
             test_string
         );

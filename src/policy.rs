@@ -10,6 +10,29 @@ pub enum PolicyReq {
     Authorized { action: &'static str },
 }
 
+/// Standard action names for authorization policies.
+///
+/// These constants define the canonical action names used throughout the crate.
+/// Using these constants instead of string literals prevents typos and provides
+/// a single source of truth for action names.
+///
+/// # Examples
+///
+/// ```
+/// use policy_core::{Authorized, actions};
+///
+/// let log_policy = Authorized::for_action(actions::LOG);
+/// let http_policy = Authorized::for_action(actions::HTTP);
+/// ```
+pub mod actions {
+    /// Logging action - grants LogCap capability
+    pub const LOG: &str = "log";
+    /// HTTP action - grants HttpCap capability
+    pub const HTTP: &str = "http";
+    /// Audit action - grants AuditCap capability
+    pub const AUDIT: &str = "audit";
+}
+
 /// Policy requiring authentication.
 ///
 /// Use this to require that a principal is present in the request metadata.
