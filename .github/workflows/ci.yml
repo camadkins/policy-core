@@ -247,6 +247,12 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Build release
+        run: cargo build --release --verbose
+
+      - name: Test release build
+        run: cargo test --release --verbose
+
       - name: Verify package contents
         run: cargo package --list
 
