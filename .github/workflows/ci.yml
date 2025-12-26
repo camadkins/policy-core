@@ -192,7 +192,15 @@ jobs:
         run: |
           # Set LD_LIBRARY_PATH to include nightly toolchain's lib directory for LLVM linking
           export LD_LIBRARY_PATH="$(rustc +nightly --print sysroot)/lib:${LD_LIBRARY_PATH:-}"
-          cargo dylint --all --workspace
+          cargo dylint --all --workspace || {
+            echo "=== Dylint failed. Diagnosing... ==="
+            echo "Looking for .so files in target directories:"
+            find target -name "*.so" -type f 2>/dev/null || true
+            find dylint -name "*.so" -type f 2>/dev/null || true
+            echo "Expected location: target/dylint/libraries/nightly-x86_64-unknown-linux-gnu/release/"
+            ls -la target/dylint/libraries/nightly-x86_64-unknown-linux-gnu/release/ 2>/dev/null || echo "Directory does not exist"
+            exit 1
+          }
         env:
           CARGO_HOME: /home/runner/.cargo
           CARGO_INCREMENTAL: 0
