@@ -143,7 +143,7 @@ jobs:
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
         with:
-          components: rustc-dev
+          components: rustc-dev, llvm-tools
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
