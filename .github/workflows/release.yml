@@ -22,23 +22,8 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
 
       - name: Extract version from tag
         id: get_version
@@ -50,7 +35,7 @@ jobs:
 
       - name: Verify Cargo.toml version matches tag
         run: |
-          CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -n1 | sed 's/version = "\(.*\)"/\1/')
+          CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
           if [ "$CARGO_VERSION" != "${{ steps.get_version.outputs.version }}" ]; then
             echo "Error: Cargo.toml version ($CARGO_VERSION) does not match tag version (${{ steps.get_version.outputs.version }})"
             exit 1
@@ -104,7 +89,11 @@ jobs:
           VERSION="${{ steps.get_version.outputs.version }}"
 
           # Use awk to extract content between version headers
-          CHANGELOG_CONTENT=$(awk "/^## \[$VERSION\]/, /^## \[/" CHANGELOG.md | sed '$d' | tail -n +2)
+          CHANGELOG_CONTENT=$(awk "
+            /^## \[$VERSION\]/ { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          " CHANGELOG.md)
 
           # If changelog content is empty, provide a default message
           if [ -z "$CHANGELOG_CONTENT" ]; then
