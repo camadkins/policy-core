@@ -102,7 +102,7 @@ impl std::error::Error for Violation {}
 impl From<crate::SanitizationError> for Violation {
     fn from(err: crate::SanitizationError) -> Self {
         Violation::new(
-            ViolationKind::Unauthenticated,
+            ViolationKind::InvalidInput,
             format!("Sanitization failed: {}", err),
         )
     }
@@ -124,6 +124,8 @@ pub enum ViolationKind {
     MissingHttpCapability,
     /// Audit capability was not granted
     MissingAuditCapability,
+    /// Input validation failed (malformed, forbidden characters, etc.)
+    InvalidInput,
 }
 
 impl fmt::Display for ViolationKind {
@@ -155,6 +157,7 @@ impl fmt::Display for ViolationKind {
             ViolationKind::MissingLogCapability => write!(f, "Missing logging capability"),
             ViolationKind::MissingHttpCapability => write!(f, "Missing HTTP capability"),
             ViolationKind::MissingAuditCapability => write!(f, "Missing audit capability"),
+            ViolationKind::InvalidInput => write!(f, "Invalid input"),
         }
     }
 }
@@ -180,6 +183,7 @@ mod proptests {
             Just(ViolationKind::MissingLogCapability),
             Just(ViolationKind::MissingHttpCapability),
             Just(ViolationKind::MissingAuditCapability),
+            Just(ViolationKind::InvalidInput),
         ]
     }
 
@@ -241,6 +245,9 @@ mod proptests {
                 }
                 ViolationKind::MissingAuditCapability => {
                     prop_assert_eq!(display_output, "Missing audit capability");
+                }
+                ViolationKind::InvalidInput => {
+                    prop_assert_eq!(display_output, "Invalid input");
                 }
             }
         }
