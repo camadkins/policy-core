@@ -92,7 +92,10 @@ fn check_macro(cx: &EarlyContext<'_>, mac: &MacCall, span: rustc_span::Span) {
 
 #[unsafe(no_mangle)]
 #[allow(unsafe_code)]
-pub extern "C" fn register_lints(_sess: &rustc_session::Session, lint_store: &mut rustc_lint::LintStore) {
+pub extern "C" fn register_lints(
+    _sess: &rustc_session::Session,
+    lint_store: &mut rustc_lint::LintStore,
+) {
     lint_store.register_lints(&[&NO_PRINTLN]);
     lint_store.register_early_pass(|| Box::new(NoPrintln));
 }

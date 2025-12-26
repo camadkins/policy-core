@@ -1,3 +1,6 @@
 /target
+dylint/target/
+**/target/
+**/.rustc_info.json
 .claude
 *.local.md
