@@ -1,12 +1,12 @@
 //! Enforcement pack: Custom lints for policy-core invariants.
 //!
-//! Issue #38: First forbidden import/macro lint - NO_PRINTLN
-//! Forbids println!, eprintln!, and dbg! to enforce structured logging via PolicyLog.
+//! This lint library enforces architectural invariants at compile time,
+//! preventing accidental bypass of capability gating and structured logging.
 //!
-//! Future lints (#39-#40):
-//! - Verified<T> forgeability prevention
-//! - Tainted<T> bypass detection
-//! - Forbidden sink usage detection
+//! ## Implemented Lints
+//!
+//! - `NO_PRINTLN`: Forbids println!, eprintln!, and dbg! macros to enforce
+//!   structured logging via PolicyLog and prevent secret leakage.
 
 #![feature(rustc_private)]
 #![warn(unused_extern_crates)]
