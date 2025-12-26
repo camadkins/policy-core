@@ -188,15 +188,11 @@ jobs:
             target/dylint
           key: ${{ runner.os }}-dylint-build-${{ hashFiles('dylint/**/Cargo.lock', 'dylint/**/Cargo.toml') }}
 
-      - name: Build enforcement pack libraries
+      - name: Run enforcement pack lints
         run: |
-          cd dylint
           # Set LD_LIBRARY_PATH to include nightly toolchain's lib directory for LLVM linking
           export LD_LIBRARY_PATH="$(rustc +nightly --print sysroot)/lib:${LD_LIBRARY_PATH:-}"
-          cargo +nightly build --release
-
-      - name: Run enforcement pack lints
-        run: cargo dylint --all --workspace
+          cargo dylint --all --workspace
         env:
           CARGO_HOME: /home/runner/.cargo
           CARGO_INCREMENTAL: 0
