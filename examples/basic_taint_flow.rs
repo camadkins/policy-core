@@ -15,7 +15,7 @@ fn main() {
 
     // Create a sink for demonstrating safe operations
     let sink = VecSink::new();
-    let sanitizer = StringSanitizer::new(256); // Max length: 256 chars
+    let sanitizer = StringSanitizer::new(256).unwrap(); // Max length: 256 chars
 
     // Scenario 1: Valid input - success case
     println!("--- Scenario 1: Valid Input ---");

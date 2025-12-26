@@ -28,7 +28,11 @@ use std::fmt;
 /// let key_value = api_key.expose_secret();
 /// assert_eq!(key_value, "sk-1234567890");
 /// ```
+// BREAKING CHANGE WARNING: Do NOT add Clone, Copy, or Default derives.
+// These would bypass redaction protections and allow secrets to be duplicated carelessly.
 pub struct Secret<T> {
+    // BREAKING CHANGE WARNING: This field MUST remain private.
+    // Making it public exposes secrets directly, defeating automatic redaction (CWE-532).
     inner: T,
 }
 
@@ -53,13 +57,23 @@ impl<T> Secret<T> {
     }
 }
 
+// BREAKING CHANGE WARNING: Do NOT implement Deref, AsRef, Borrow, Display (that shows the value),
+// Debug (that shows the value), or any other trait that would expose the secret implicitly.
+// The ONLY access should be through expose_secret(), which has an intentionally scary name.
+
 impl<T> fmt::Debug for Secret<T> {
+    /// BREAKING CHANGE WARNING: This MUST unconditionally return "\[REDACTED\]".
+    /// Changing this to show the actual value (even in debug builds) defeats the
+    /// entire purpose of `Secret<T>` and enables accidental secret exposure in logs (CWE-532).
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("[REDACTED]")
     }
 }
 
 impl<T> fmt::Display for Secret<T> {
+    /// BREAKING CHANGE WARNING: This MUST unconditionally return "\[REDACTED\]".
+    /// Changing this to show the actual value exposes secrets in user-facing output,
+    /// error messages, and logs (CWE-532: Insertion of Sensitive Information into Log File).
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("[REDACTED]")
     }

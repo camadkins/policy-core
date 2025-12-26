@@ -109,7 +109,7 @@ fn complete_flow_authed_to_authorized() {
     // 5. Sanitize tainted inputs
     let tainted_url = extraction.inputs.query_params().get("url").unwrap().clone();
 
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
     let verified_url = sanitizer
         .sanitize(tainted_url)
         .expect("sanitization succeeds");
@@ -167,7 +167,7 @@ fn flow_sanitization_required_for_sinks() {
         .unwrap()
         .clone();
 
-    let sanitizer = StringSanitizer::new(100);
+    let sanitizer = StringSanitizer::new(100).unwrap();
     let verified_name = sanitizer.sanitize(tainted_name).expect("valid");
 
     // Verified value is trimmed
@@ -256,7 +256,7 @@ fn request_id_included_in_http_metadata() {
 
     // Make HTTP request
     let http = ctx.http().expect("HttpCap granted");
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
     let tainted_url = extraction.inputs.query_params().get("url").unwrap().clone();
     let verified_url = sanitizer.sanitize(tainted_url).expect("valid");
 
@@ -286,7 +286,7 @@ fn multiple_requests_preserve_request_id() {
         .expect("authorized");
 
     let http = ctx.http().expect("HttpCap granted");
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
 
     // Make multiple HTTP requests
     for i in 1..=3 {
@@ -466,7 +466,7 @@ fn end_to_end_authorized_path_succeeds() {
     let http = ctx.http().unwrap();
     let logger = ctx.log().unwrap();
 
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
     let tainted_url = extraction.inputs.query_params().get("url").unwrap().clone();
     let verified_url = sanitizer.sanitize(tainted_url).expect("valid URL");
 

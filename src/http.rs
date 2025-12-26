@@ -80,7 +80,7 @@ pub struct HttpRequest {
 /// let http = ctx.http().expect("HttpCap required");
 ///
 /// // URLs and bodies must be verified
-/// let sanitizer = StringSanitizer::new(256);
+/// let sanitizer = StringSanitizer::new(256).unwrap();
 /// let url = Tainted::new("https://api.example.com/users".to_string());
 /// let verified_url = sanitizer.sanitize(url).unwrap();
 ///
@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn policy_http_with_sanitizer_integration() {
         let http = PolicyHttp::new("req-test-5");
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
 
         // Sanitize tainted URL
         let tainted_url = Tainted::new("  https://api.example.com/data  ".to_string());

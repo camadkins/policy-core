@@ -19,14 +19,18 @@ use std::fmt;
 ///
 /// let user_input = Tainted::new("'; DROP TABLE users; --".to_string());
 ///
-/// // Debug output shows it's tainted (for development)
-/// println!("{:?}", user_input); // Tainted { inner: "'; DROP..." }
+/// // Debug output shows it's tainted but redacts the value for security
+/// println!("{:?}", user_input); // Tainted { inner: "<redacted>" }
 ///
 /// // But you CANNOT use the value directly:
 /// // let query = format!("SELECT * FROM users WHERE name = '{}'", user_input); // Won't compile!
 /// ```
+// BREAKING CHANGE WARNING: Do NOT remove Clone - tainted values need to be duplicated for validation flow.
 #[derive(Clone)]
 pub struct Tainted<T> {
+    // BREAKING CHANGE WARNING: This field MUST remain private.
+    // Making it public bypasses taint tracking entirely (CWE-20: Improper Input Validation).
+    // External code must go through Sanitizer trait to access the value.
     inner: T,
 }
 
@@ -47,15 +51,26 @@ impl<T> Tainted<T> {
     /// the value before wrapping it in `Verified<T>`.
     ///
     /// External code cannot call this method and must go through the `Sanitizer` trait.
+    ///
+    /// BREAKING CHANGE WARNING: Changing visibility to `pub` creates a CRITICAL SECURITY BYPASS.
+    /// External code could extract raw values without validation, defeating the entire
+    /// taint tracking system and enabling injection attacks (CWE-74, CWE-89, CWE-117).
     pub(crate) fn into_inner(self) -> T {
         self.inner
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for Tainted<T> {
+// BREAKING CHANGE WARNING: Do NOT add Deref, AsRef, Borrow, From<T>, Into<T>, or any other
+// implicit conversion traits to Tainted<T>. These would bypass the sanitization requirement
+// and allow tainted data to flow into sinks, defeating the security model entirely.
+
+impl<T> fmt::Debug for Tainted<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // SECURITY: Do not expose the raw tainted value in debug output.
+        // This prevents PII leakage and log injection if debug output is captured in logs.
+        // See issue #82: Tainted::Debug prints raw untrusted input
         f.debug_struct("Tainted")
-            .field("inner", &self.inner)
+            .field("inner", &"<redacted>")
             .finish()
     }
 }
@@ -69,9 +84,11 @@ mod tests {
         let user_input = Tainted::new("malicious input".to_string());
         let debug_output = format!("{:?}", user_input);
 
-        // Debug shows it's tainted
+        // Debug shows it's tainted but redacts the actual value
         assert!(debug_output.contains("Tainted"));
-        assert!(debug_output.contains("malicious input"));
+        assert!(debug_output.contains("<redacted>"));
+        // Security: value should NOT be exposed in debug output
+        assert!(!debug_output.contains("malicious input"));
     }
 
     #[test]
@@ -110,7 +127,7 @@ mod tests {
             /// Property: Cloning a Tainted value results in identical sanitization outcomes
             #[test]
             fn proptest_tainted_clone_preserves_value(input in arb_valid_string(256)) {
-                let sanitizer = StringSanitizer::new(256);
+                let sanitizer = StringSanitizer::new(256).unwrap();
 
                 // Create tainted value and clone it
                 let tainted1 = Tainted::new(input.clone());

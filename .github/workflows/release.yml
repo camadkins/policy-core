@@ -1,0 +1,161 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG_NAME#v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Verify Cargo.toml version matches tag
+        run: |
+          CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          if [ "$CARGO_VERSION" != "${{ steps.get_version.outputs.version }}" ]; then
+            echo "Error: Cargo.toml version ($CARGO_VERSION) does not match tag version (${{ steps.get_version.outputs.version }})"
+            exit 1
+          fi
+          echo "Version check passed: $CARGO_VERSION"
+
+      - name: Verify CHANGELOG has entry for version
+        run: |
+          if ! grep -q "## \[${{ steps.get_version.outputs.version }}\]" CHANGELOG.md; then
+            echo "Error: CHANGELOG.md does not contain entry for version ${{ steps.get_version.outputs.version }}"
+            exit 1
+          fi
+          echo "CHANGELOG check passed"
+
+      - name: Run tests
+        run: cargo test --all-features --verbose
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Verify package contents
+        run: cargo package --list
+
+      - name: Dry-run publish
+        run: cargo publish --dry-run
+
+  create-draft-release:
+    name: Create Draft Release
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG_NAME#v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Extract CHANGELOG entry
+        id: changelog
+        run: |
+          # Extract the section for this version from CHANGELOG.md
+          VERSION="${{ steps.get_version.outputs.version }}"
+
+          # Use awk to extract content between version headers
+          CHANGELOG_CONTENT=$(awk "
+            /^## \[$VERSION\]/ { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          " CHANGELOG.md)
+
+          # If changelog content is empty, provide a default message
+          if [ -z "$CHANGELOG_CONTENT" ]; then
+            CHANGELOG_CONTENT="See [CHANGELOG.md](https://github.com/camadkins/policy-core/blob/main/CHANGELOG.md) for details."
+          fi
+
+          # Write to file to preserve newlines
+          echo "$CHANGELOG_CONTENT" > /tmp/changelog_body.md
+
+          # Set output using file to preserve multiline content
+          {
+            echo 'body<<EOF'
+            cat /tmp/changelog_body.md
+            echo EOF
+          } >> $GITHUB_OUTPUT
+
+      - name: Determine if prerelease
+        id: prerelease
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          if [[ "$VERSION" =~ (alpha|beta|rc) ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build crate package
+        run: cargo package --verbose
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: Release ${{ steps.get_version.outputs.tag }}
+          body: |
+            # policy-core ${{ steps.get_version.outputs.version }}
+
+            ${{ steps.changelog.outputs.body }}
+
+            ---
+
+            ## Installation
+
+            ```bash
+            cargo add policy-core@${{ steps.get_version.outputs.version }}
+            ```
+
+            Or add to your `Cargo.toml`:
+
+            ```toml
+            [dependencies]
+            policy-core = "${{ steps.get_version.outputs.version }}"
+            ```
+
+            ## Resources
+
+            - [Documentation](https://docs.rs/policy-core/${{ steps.get_version.outputs.version }})
+            - [Crates.io](https://crates.io/crates/policy-core)
+            - [Repository](https://github.com/camadkins/policy-core)
+            - [Changelog](https://github.com/camadkins/policy-core/blob/main/CHANGELOG.md)
+          draft: true
+          prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
+          files: |
+            target/package/policy-core-${{ steps.get_version.outputs.version }}.crate
+          token: ${{ secrets.GITHUB_TOKEN }}

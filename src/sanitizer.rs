@@ -172,9 +172,14 @@ pub trait Sanitizer<T> {
 /// in tests or as a placeholder. It unconditionally promotes tainted values
 /// to verified values.
 ///
+/// This type is only available when running tests (`#[cfg(test)]`) to prevent
+/// accidental use in production code.
+///
 /// # Examples
 ///
 /// ```
+/// # #[cfg(test)]
+/// # {
 /// use policy_core::{Tainted, Sanitizer, AcceptAllSanitizer};
 ///
 /// let sanitizer = AcceptAllSanitizer;
@@ -182,10 +187,13 @@ pub trait Sanitizer<T> {
 /// let verified = sanitizer.sanitize(tainted).expect("always succeeds");
 ///
 /// assert_eq!(verified.as_ref(), "any value");
+/// # }
 /// ```
+#[cfg(test)]
 #[derive(Debug, Clone, Copy)]
 pub struct AcceptAllSanitizer;
 
+#[cfg(test)]
 impl<T> Sanitizer<T> for AcceptAllSanitizer {
     fn sanitize(&self, input: Tainted<T>) -> Result<Verified<T>, SanitizationError> {
         // Extract the inner value from the tainted wrapper
@@ -199,9 +207,14 @@ impl<T> Sanitizer<T> for AcceptAllSanitizer {
 ///
 /// This sanitizer always fails validation, useful for testing error paths.
 ///
+/// This type is only available when running tests (`#[cfg(test)]`) to prevent
+/// accidental use in production code.
+///
 /// # Examples
 ///
 /// ```
+/// # #[cfg(test)]
+/// # {
 /// use policy_core::{Tainted, Sanitizer, RejectAllSanitizer, SanitizationErrorKind};
 ///
 /// let sanitizer = RejectAllSanitizer;
@@ -210,10 +223,13 @@ impl<T> Sanitizer<T> for AcceptAllSanitizer {
 ///
 /// assert!(result.is_err());
 /// assert_eq!(result.unwrap_err().kind(), SanitizationErrorKind::InvalidInput);
+/// # }
 /// ```
+#[cfg(test)]
 #[derive(Debug, Clone, Copy)]
 pub struct RejectAllSanitizer;
 
+#[cfg(test)]
 impl<T> Sanitizer<T> for RejectAllSanitizer {
     fn sanitize(&self, _input: Tainted<T>) -> Result<Verified<T>, SanitizationError> {
         Err(SanitizationError::new(
@@ -244,7 +260,7 @@ impl<T> Sanitizer<T> for RejectAllSanitizer {
 /// use policy_core::{Tainted, Sanitizer, StringSanitizer};
 ///
 /// // Valid input with whitespace is trimmed
-/// let sanitizer = StringSanitizer::new(256);
+/// let sanitizer = StringSanitizer::new(256).unwrap();
 /// let tainted = Tainted::new("  hello world  ".to_string());
 /// let verified = sanitizer.sanitize(tainted).expect("should succeed");
 /// assert_eq!(verified.as_ref(), "hello world");
@@ -269,20 +285,25 @@ impl StringSanitizer {
     ///
     /// * `max_len` - Maximum allowed length for the sanitized string (must be > 0)
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `max_len` is 0.
+    /// Returns `SanitizationError` if `max_len` is 0.
     ///
     /// # Examples
     ///
     /// ```
     /// use policy_core::StringSanitizer;
     ///
-    /// let sanitizer = StringSanitizer::new(100);
+    /// let sanitizer = StringSanitizer::new(100).expect("valid max_len");
     /// ```
-    pub fn new(max_len: usize) -> Self {
-        assert!(max_len > 0, "max_len must be greater than 0");
-        Self { max_len }
+    pub fn new(max_len: usize) -> Result<Self, SanitizationError> {
+        if max_len == 0 {
+            return Err(SanitizationError::new(
+                SanitizationErrorKind::InvalidInput,
+                "max_len must be greater than 0",
+            ));
+        }
+        Ok(Self { max_len })
     }
 
     /// Creates a string sanitizer with the default maximum length of 256 characters.
@@ -295,7 +316,7 @@ impl StringSanitizer {
     /// let sanitizer = StringSanitizer::default_limits();
     /// ```
     pub fn default_limits() -> Self {
-        Self::new(256)
+        Self::new(256).expect("default max_len of 256 is valid")
     }
 
     /// Checks if a character is a control or non-printable character.
@@ -317,6 +338,8 @@ impl Sanitizer<String> for StringSanitizer {
         // Trim leading and trailing whitespace
         let trimmed = raw.trim();
 
+        // BREAKING CHANGE WARNING: Do NOT remove the empty string check.
+        // Empty strings can cause downstream parsing errors and indicate invalid input.
         // Reject empty strings (after trimming)
         if trimmed.is_empty() {
             return Err(SanitizationError::new(
@@ -325,6 +348,10 @@ impl Sanitizer<String> for StringSanitizer {
             ));
         }
 
+        // BREAKING CHANGE WARNING: Do NOT remove or weaken the control character check.
+        // Control characters enable LOG INJECTION attacks (CWE-117).
+        // Missing newline filtering allows forging audit entries.
+        // Missing null byte filtering causes string truncation.
         // Check for control or non-printable characters
         if trimmed.chars().any(Self::is_control_char) {
             return Err(SanitizationError::new(
@@ -333,6 +360,9 @@ impl Sanitizer<String> for StringSanitizer {
             ));
         }
 
+        // BREAKING CHANGE WARNING: Do NOT remove the length check.
+        // Unbounded input enables DENIAL OF SERVICE through memory exhaustion
+        // and regex DOS attacks (CWE-400: Uncontrolled Resource Consumption).
         // Check length constraint
         if trimmed.len() > self.max_len {
             return Err(SanitizationError::new(
@@ -341,6 +371,8 @@ impl Sanitizer<String> for StringSanitizer {
             ));
         }
 
+        // BREAKING CHANGE WARNING: Verified::new_unchecked() MUST ONLY be called AFTER
+        // all validation checks pass. Moving this before validation creates a CRITICAL BYPASS.
         // All validation passed - create verified value
         Ok(Verified::new_unchecked(trimmed.to_string()))
     }
@@ -461,7 +493,7 @@ mod tests {
 
     #[test]
     fn string_sanitizer_accepts_valid_input() {
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
         let tainted = Tainted::new("hello world".to_string());
 
         let result = sanitizer.sanitize(tainted);
@@ -473,7 +505,7 @@ mod tests {
 
     #[test]
     fn string_sanitizer_trims_whitespace() {
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
         let tainted = Tainted::new("  hello world  ".to_string());
 
         let verified = sanitizer.sanitize(tainted).expect("should succeed");
@@ -483,7 +515,7 @@ mod tests {
 
     #[test]
     fn string_sanitizer_rejects_empty_string() {
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
         let tainted = Tainted::new("".to_string());
 
         let result = sanitizer.sanitize(tainted);
@@ -495,7 +527,7 @@ mod tests {
 
     #[test]
     fn string_sanitizer_rejects_whitespace_only() {
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
         let tainted = Tainted::new("   \t\t  ".to_string());
 
         let result = sanitizer.sanitize(tainted);
@@ -507,7 +539,7 @@ mod tests {
 
     #[test]
     fn string_sanitizer_rejects_newline() {
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
         let tainted = Tainted::new("hello\nworld".to_string());
 
         let result = sanitizer.sanitize(tainted);
@@ -519,7 +551,7 @@ mod tests {
 
     #[test]
     fn string_sanitizer_rejects_null_byte() {
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
         let tainted = Tainted::new("hello\0world".to_string());
 
         let result = sanitizer.sanitize(tainted);
@@ -531,7 +563,7 @@ mod tests {
 
     #[test]
     fn string_sanitizer_rejects_carriage_return() {
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
         let tainted = Tainted::new("hello\rworld".to_string());
 
         let result = sanitizer.sanitize(tainted);
@@ -543,7 +575,7 @@ mod tests {
 
     #[test]
     fn string_sanitizer_rejects_tab() {
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
         let tainted = Tainted::new("hello\tworld".to_string());
 
         let result = sanitizer.sanitize(tainted);
@@ -555,7 +587,7 @@ mod tests {
 
     #[test]
     fn string_sanitizer_rejects_too_long() {
-        let sanitizer = StringSanitizer::new(10);
+        let sanitizer = StringSanitizer::new(10).unwrap();
         let tainted = Tainted::new("this is a very long string".to_string());
 
         let result = sanitizer.sanitize(tainted);
@@ -568,7 +600,7 @@ mod tests {
 
     #[test]
     fn string_sanitizer_accepts_at_max_length() {
-        let sanitizer = StringSanitizer::new(10);
+        let sanitizer = StringSanitizer::new(10).unwrap();
         let tainted = Tainted::new("exactly10!".to_string());
 
         let result = sanitizer.sanitize(tainted);
@@ -590,7 +622,7 @@ mod tests {
 
     #[test]
     fn string_sanitizer_accepts_unicode() {
-        let sanitizer = StringSanitizer::new(256);
+        let sanitizer = StringSanitizer::new(256).unwrap();
         let tainted = Tainted::new("Hello 世界".to_string());
 
         let result = sanitizer.sanitize(tainted);
@@ -602,7 +634,7 @@ mod tests {
 
     #[test]
     fn string_sanitizer_error_does_not_leak_input() {
-        let sanitizer = StringSanitizer::new(10);
+        let sanitizer = StringSanitizer::new(10).unwrap();
         let secret_input = "SECRET_PASSWORD_12345";
         let tainted = Tainted::new(secret_input.to_string());
 
@@ -619,9 +651,12 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "max_len must be greater than 0")]
-    fn string_sanitizer_panics_on_zero_max_len() {
-        let _sanitizer = StringSanitizer::new(0);
+    fn string_sanitizer_rejects_zero_max_len() {
+        let result = StringSanitizer::new(0);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_eq!(error.kind(), SanitizationErrorKind::InvalidInput);
+        assert!(error.message().contains("max_len must be greater than 0"));
     }
 }
 
@@ -651,7 +686,7 @@ mod proptests {
         /// Property: Sanitizing an already-sanitized value is idempotent
         #[test]
         fn proptest_sanitizer_is_idempotent(input in arb_valid_string(256)) {
-            let sanitizer = StringSanitizer::new(256);
+            let sanitizer = StringSanitizer::new(256).unwrap();
             let tainted = Tainted::new(input);
 
             // First sanitization
@@ -673,7 +708,7 @@ mod proptests {
             suffix in arb_whitespace_string()
         ) {
             let input = format!("{}{}{}", prefix, content, suffix);
-            let sanitizer = StringSanitizer::new(256);
+            let sanitizer = StringSanitizer::new(256).unwrap();
             let tainted = Tainted::new(input);
 
             if let Ok(verified) = sanitizer.sanitize(tainted) {
@@ -692,7 +727,7 @@ mod proptests {
             word2 in prop::string::string_regex("[a-zA-Z]{1,10}").unwrap()
         ) {
             let input = format!("{}  {}", word1, word2);  // Two spaces
-            let sanitizer = StringSanitizer::new(256);
+            let sanitizer = StringSanitizer::new(256).unwrap();
             let tainted = Tainted::new(input);
 
             if let Ok(verified) = sanitizer.sanitize(tainted) {
@@ -707,7 +742,7 @@ mod proptests {
             input in arb_printable_string(),
             max_len in 1usize..=256
         ) {
-            let sanitizer = StringSanitizer::new(max_len);
+            let sanitizer = StringSanitizer::new(max_len).unwrap();
             let tainted = Tainted::new(input);
 
             if let Ok(verified) = sanitizer.sanitize(tainted) {
@@ -718,7 +753,7 @@ mod proptests {
         /// Property: String at exactly max_len is accepted, max_len+1 is rejected
         #[test]
         fn proptest_sanitizer_boundary_at_max_length(max_len in 1usize..=100) {
-            let sanitizer = StringSanitizer::new(max_len);
+            let sanitizer = StringSanitizer::new(max_len).unwrap();
 
             // String of exactly max_len should be accepted
             let exact_input = "a".repeat(max_len);
@@ -744,7 +779,7 @@ mod proptests {
         ) {
             // Put control chars in the middle so they won't be trimmed away
             let input = format!("{}{}{}", word1, control_chars, word2);
-            let sanitizer = StringSanitizer::new(256);
+            let sanitizer = StringSanitizer::new(256).unwrap();
             let tainted = Tainted::new(input);
 
             let result = sanitizer.sanitize(tainted);
@@ -762,7 +797,7 @@ mod proptests {
             // Create input that will definitely be rejected (contains control char)
             // Use uppercase secret to avoid accidental matches with error message words
             let bad_input = format!("USER_SECRET_{}\x00", secret_value);
-            let sanitizer = StringSanitizer::new(256);
+            let sanitizer = StringSanitizer::new(256).unwrap();
             let tainted = Tainted::new(bad_input.clone());
 
             if let Err(error) = sanitizer.sanitize(tainted) {

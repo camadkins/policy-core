@@ -15,6 +15,12 @@ exclude = [
     ".claude/",
     "proptest-regressions/",
     "AUDIT.local.md",
+    ".github/",
+    "ARCHITECTURE.md",
+    "DESIGN_PHILOSOPHY.md",
+    "DESIGN_RATIONALE.md",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
 ]
 
 [package.metadata.docs.rs]

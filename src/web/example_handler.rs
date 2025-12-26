@@ -62,7 +62,7 @@ pub fn handle_public_search(adapter: &RequestAdapter) -> Result<PublicSearchResu
         .clone();
 
     // 3. Sanitize query (prevent injection, enforce length limits)
-    let sanitizer = StringSanitizer::new(200);
+    let sanitizer = StringSanitizer::new(200).unwrap();
     let verified_query = sanitizer.sanitize(tainted_query)?;
 
     // 4. Perform search (simulated - no capabilities needed for public endpoint)
@@ -206,7 +206,7 @@ pub fn handle_api_call(adapter: &RequestAdapter) -> Result<ApiCallResult, Violat
         })?
         .clone();
 
-    let sanitizer = StringSanitizer::new(256);
+    let sanitizer = StringSanitizer::new(256).unwrap();
     let verified_url = sanitizer.sanitize(tainted_url)?;
 
     // 5. Make HTTP call with verified URL and request-id context
@@ -269,7 +269,7 @@ pub fn handle_admin_action(adapter: &RequestAdapter) -> Result<AdminActionResult
     let logger = ctx.log()?;
 
     // 4. Sanitize inputs
-    let sanitizer = StringSanitizer::new(100);
+    let sanitizer = StringSanitizer::new(100).unwrap();
 
     let tainted_action = extraction
         .inputs
