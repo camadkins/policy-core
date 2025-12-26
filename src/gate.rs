@@ -7,6 +7,7 @@ use crate::{
     request::RequestMeta,
     state::Authorized,
 };
+use std::collections::HashSet;
 
 /// The policy enforcement gate.
 ///
@@ -39,7 +40,8 @@ pub struct PolicyGate {
     // Making them public allows external code to modify policy requirements after construction,
     // bypassing validation and enabling privilege escalation.
     meta: RequestMeta,
-    requirements: Vec<PolicyReq>,
+    requirements: Vec<PolicyReq>, // Preserve order for deterministic validation
+    requirement_set: HashSet<PolicyReq>, // O(1) deduplication
 }
 
 impl PolicyGate {
@@ -48,6 +50,7 @@ impl PolicyGate {
         Self {
             meta,
             requirements: Vec::new(),
+            requirement_set: HashSet::new(),
         }
     }
 
@@ -75,12 +78,8 @@ impl PolicyGate {
     pub fn require(mut self, policy: impl Into<PolicyReq>) -> Self {
         let req = policy.into();
 
-        // Deduplicate: only add if not already present
-        if !self
-            .requirements
-            .iter()
-            .any(|r| self.same_requirement(r, &req))
-        {
+        // O(1) deduplication using HashSet
+        if self.requirement_set.insert(req.clone()) {
             self.requirements.push(req);
         }
 
@@ -233,20 +232,6 @@ impl PolicyGate {
             .iter()
             .any(|req| matches!(req, PolicyReq::Authorized { action: a } if *a == action))
     }
-
-    /// Determine whether two policy requirements are equivalent for deduplication.
-    ///
-    /// Two requirements are considered equivalent when they are both `PolicyReq::Authenticated`
-    /// or when they are both `PolicyReq::Authorized` with the same `action`.
-    fn same_requirement(&self, a: &PolicyReq, b: &PolicyReq) -> bool {
-        match (a, b) {
-            (PolicyReq::Authenticated, PolicyReq::Authenticated) => true,
-            (PolicyReq::Authorized { action: a1 }, PolicyReq::Authorized { action: a2 }) => {
-                a1 == a2
-            }
-            _ => false,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -317,7 +302,7 @@ mod proptests {
 
             // Count how many times this requirement appears
             let occurrences = gate.requirements.iter()
-                .filter(|r| gate.same_requirement(r, &req))
+                .filter(|r| *r == &req)
                 .count();
 
             // Should appear exactly once due to deduplication

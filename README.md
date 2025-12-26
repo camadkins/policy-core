@@ -234,6 +234,47 @@ cargo dylint --all --workspace
 
 Core types (`Tainted<T>`, `Verified<T>`, `Sanitizer`, `Sink`) depend only on the standard library. Logging is optional.
 
+## Build Performance Tips
+
+The project is configured with optimized build profiles for faster development iteration.
+
+### Local Development Setup
+
+For even faster builds, create `.cargo/config.toml` in the project root (this file is git-ignored):
+
+```toml
+[build]
+# Use lld linker (faster than default ld)
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+```
+
+### Install Faster Linker
+
+#### lld (good, widely available)
+```bash
+sudo apt install lld clang  # Ubuntu/Debian
+brew install llvm           # macOS
+```
+
+#### mold (best, Linux only)
+```bash
+# See: https://github.com/rui314/mold
+# After installing, change rustflags to: ["-C", "link-arg=-fuse-ld=mold"]
+```
+
+### Build Profiles
+
+- `cargo build` - Fast incremental builds (debug = 1, 20-30% faster than default)
+- `cargo build --profile dev-opt` - Slightly optimized for performance testing
+- `cargo build --release` - Full optimization
+- `cargo test` - Fast test builds
+
+The development profile uses `debug = 1` (line tables only) instead of `debug = 2` (full debug info), reducing build times by 20-30% with minimal impact on debugging capability. Release builds use thin LTO for optimal performance.
+
 ## Security & Limitations
 
 This library is not formally verified or security-audited. It demonstrates patterns, not a complete security solution.

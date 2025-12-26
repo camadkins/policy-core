@@ -163,6 +163,6 @@ mod tests {
 
         let inputs = req.extract_tainted_inputs();
         // Just verify it returns successfully
-        assert_eq!(inputs.query_params().len(), 0);
+        assert_eq!(inputs.query_params().count(), 0);
     }
 }
