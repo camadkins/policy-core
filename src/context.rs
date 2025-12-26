@@ -190,14 +190,35 @@ impl Ctx<Authed> {
 // ============================================================================
 
 impl Ctx<Authorized> {
-    /// Creates a new context with a request ID and optional capabilities.
+    /// Test-only constructor that creates a context without a principal.
     ///
-    /// This is `pub(crate)` so only code within policy-core can create it.
-    /// PolicyGate calls this after validating policies.
+    /// This is restricted to tests because production code should always use
+    /// [`PolicyGate`](crate::PolicyGate) to create contexts after validating
+    /// authentication and authorization policies.
     ///
-    /// This is a compatibility shim for existing code that uses the old
-    /// non-generic Ctx API. New code should use state transitions.
-    #[allow(dead_code)] // Will be used by PolicyGate
+    /// # Usage in Tests
+    ///
+    /// This constructor is useful for unit tests that need to verify
+    /// capability-checking logic without going through full policy validation:
+    ///
+    /// ```
+    /// # use policy_core::{Ctx, LogCap};
+    /// # fn example() {
+    /// // Test that logging requires LogCap
+    /// let ctx_without_cap = Ctx::new_unchecked("req-1".to_string(), None, None);
+    /// assert!(ctx_without_cap.log().is_err());
+    ///
+    /// let ctx_with_cap = Ctx::new_unchecked("req-2".to_string(), Some(LogCap::new()), None);
+    /// assert!(ctx_with_cap.log().is_ok());
+    /// # }
+    /// ```
+    ///
+    /// # Why Not Use `new_authorized`?
+    ///
+    /// [`new_authorized`](Self::new_authorized) requires a `Principal` parameter,
+    /// which is unnecessary for tests that only verify capability checks.
+    /// This method provides a simpler API for those specific test cases.
+    #[cfg(test)]
     pub(crate) fn new_unchecked(
         request_id: String,
         log_cap: Option<LogCap>,
@@ -257,6 +278,14 @@ impl Ctx<Authorized> {
     pub fn audit_cap(&self) -> Option<AuditCap> {
         self.audit_cap
     }
+
+    // Note on code duplication: The log(), http(), and audit() methods below follow
+    // a similar pattern (check capability → return wrapper or error). This duplication
+    // is intentional rather than using a macro because:
+    // 1. Only 3 methods (minimal duplication)
+    // 2. Each has slightly different signatures (audit() doesn't use request_id)
+    // 3. Explicit code is clearer in security-critical contexts
+    // 4. Each method's error and return types are immediately visible
 
     /// Returns a capability-gated logger.
     ///

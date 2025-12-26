@@ -3,7 +3,7 @@ use crate::{
     capability::{HttpCap, LogCap},
     context::Ctx,
     error::{Violation, ViolationKind},
-    policy::PolicyReq,
+    policy::{PolicyReq, actions},
     request::RequestMeta,
     state::Authorized,
 };
@@ -123,19 +123,19 @@ impl PolicyGate {
         self.validate_all()?;
 
         // 2. Grant capabilities based on satisfied requirements
-        let log_cap = if self.requires_authorization("log") {
+        let log_cap = if self.requires_authorization(actions::LOG) {
             Some(LogCap::new())
         } else {
             None
         };
 
-        let http_cap = if self.requires_authorization("http") {
+        let http_cap = if self.requires_authorization(actions::HTTP) {
             Some(HttpCap::new())
         } else {
             None
         };
 
-        let audit_cap = if self.requires_authorization("audit") {
+        let audit_cap = if self.requires_authorization(actions::AUDIT) {
             Some(AuditCap::new())
         } else {
             None
@@ -181,8 +181,31 @@ impl PolicyGate {
                         "Cannot authorize unauthenticated principal",
                     ));
                 }
-                // For M2, just check that principal exists
-                // M3+ will add real permission/role checks
+                // Authorization validation (basic implementation):
+                //
+                // Currently, authorization is simplified: any authenticated principal
+                // is authorized for any action. This model is suitable for:
+                // - Early-stage systems with coarse-grained access control
+                // - Prototypes where all authenticated users have equal privileges
+                // - Internal tools with implicit trust assumptions
+                //
+                // Future enhancement: Role-Based Access Control (RBAC)
+                //
+                // A production authorization system would check whether the principal
+                // has specific permissions for the requested action. This typically involves:
+                // - Checking principal.roles against action requirements
+                // - Querying a policy decision point (PDP) or authorization service
+                // - Evaluating attribute-based policies (ABAC) for fine-grained control
+                //
+                // Example future logic:
+                //   match action {
+                //       "admin" => require_role(&principal, "admin"),
+                //       "log" => require_any_role(&principal, &["user", "admin"]),
+                //       _ => Ok(()),
+                //   }
+                //
+                // The simplified implementation here is intentional and will be enhanced
+                // in future iterations as access control requirements evolve.
             }
         }
         Ok(())
@@ -242,11 +265,11 @@ mod proptests {
     // Strategy: Generate arbitrary action names
     fn arb_action_name() -> impl Strategy<Value = &'static str> {
         prop_oneof![
-            Just("log"),
-            Just("http"),
-            Just("audit"),
-            Just("db"),
-            Just("cache"),
+            Just(actions::LOG),
+            Just(actions::HTTP),
+            Just(actions::AUDIT),
+            Just("db"),    // Non-standard action for testing unknown capabilities
+            Just("cache"), // Non-standard action for testing unknown capabilities
         ]
     }
 
@@ -307,9 +330,9 @@ mod proptests {
 
             // Check that the corresponding capability was granted
             match action {
-                "log" => prop_assert!(ctx.log_cap().is_some()),
-                "http" => prop_assert!(ctx.http_cap().is_some()),
-                "audit" => prop_assert!(ctx.audit_cap().is_some()),
+                actions::LOG => prop_assert!(ctx.log_cap().is_some()),
+                actions::HTTP => prop_assert!(ctx.http_cap().is_some()),
+                actions::AUDIT => prop_assert!(ctx.audit_cap().is_some()),
                 _ => {
                     // For unknown actions, no capability should be granted
                     prop_assert!(ctx.log_cap().is_none());

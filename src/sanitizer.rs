@@ -95,6 +95,41 @@ impl fmt::Display for SanitizationErrorKind {
 /// - Return `Err(SanitizationError)` if validation fails
 /// - Not leak sensitive information in errors
 ///
+/// # Security Considerations
+///
+/// Sanitizers are critical security boundaries that defend against **injection attacks**,
+/// where untrusted input is embedded in structured data formats (logs, commands, SQL, markup).
+///
+/// ## Common Injection Threats
+///
+/// | Attack Type | Vector | Impact | Defense |
+/// |-------------|--------|--------|---------|
+/// | **Log Injection** (CWE-117) | Newlines (`\n`, `\r`) | Forge audit entries, hide malicious activity | Reject control characters |
+/// | **Command Injection** (CWE-78) | Shell metacharacters (`;`, `|`, `` ` ``) | Execute arbitrary OS commands | Context-specific sanitization |
+/// | **SQL Injection** (CWE-89) | Quotes (`'`, `"`), semicolons | Manipulate database queries, exfiltrate data | Parameterized queries + input validation |
+/// | **Path Traversal** (CWE-22) | `../` sequences | Escape restricted directories, read arbitrary files | Path canonicalization |
+/// | **XSS** (CWE-79) | HTML tags (`<script>`) | Execute malicious JavaScript in user browsers | HTML escaping + CSP |
+///
+/// ## Why Control Characters Are Dangerous
+///
+/// Control characters (ASCII 0x00-0x1F, DEL 0x7F, Unicode C0/C1) can:
+/// - **Forge structure**: Newlines create fake log entries or HTTP headers
+/// - **Hide content**: Null bytes (`\0`) truncate strings in C-based parsers
+/// - **Manipulate terminals**: ANSI escapes (`\x1b[...`) clear screens, change colors
+/// - **Bypass validation**: Invisible characters appear as empty but pass length checks
+///
+/// ## Sanitizer Design Guidelines
+///
+/// When implementing custom sanitizers:
+/// 1. **Reject, don't modify**: Prefer rejecting invalid input over attempting to "fix" it
+/// 2. **Fail closed**: Default to rejection when validation is uncertain
+/// 3. **Context-aware**: Different sinks need different validation (logs vs. SQL vs. shell)
+/// 4. **No information leakage**: Don't include rejected input in error messages
+/// 5. **Document threats**: Explain which attacks your sanitizer prevents
+///
+/// See individual sanitizer implementations (`StringSanitizer`, etc.) for specific
+/// validation rules and security properties.
+///
 /// # Examples
 ///
 /// ```
