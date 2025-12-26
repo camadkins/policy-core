@@ -7,7 +7,9 @@
 /// only validated contexts can perform privileged logging.
 #[derive(Debug, Clone, Copy)]
 pub struct LogCap {
-    // Private field prevents construction outside the crate
+    // BREAKING CHANGE WARNING: This field MUST remain private.
+    // Making it public allows external code to forge capabilities via struct literal:
+    // LogCap { _private: () } - defeating the entire capability system (CRITICAL BYPASS).
     _private: (),
 }
 
@@ -16,6 +18,10 @@ impl LogCap {
     ///
     /// This is `pub(crate)` so only code within policy-core can create it.
     /// In Milestone 2, PolicyGate will be the one creating these.
+    ///
+    /// BREAKING CHANGE WARNING: Changing visibility to `pub` allows CAPABILITY FORGERY.
+    /// External code could create LogCap without passing PolicyGate validation, bypassing
+    /// authentication/authorization checks entirely (CWE-306: Missing Authentication).
     #[allow(dead_code)] // Used in tests and will be used in Milestone 2
     pub(crate) fn new() -> Self {
         Self { _private: () }
@@ -31,7 +37,9 @@ impl LogCap {
 /// only validated contexts can perform HTTP requests.
 #[derive(Debug, Clone, Copy)]
 pub struct HttpCap {
-    // Private field prevents construction outside the crate
+    // BREAKING CHANGE WARNING: This field MUST remain private.
+    // Making it public allows external code to forge HTTP capabilities via struct literal,
+    // bypassing all authorization checks (CRITICAL BYPASS).
     _private: (),
 }
 
@@ -40,6 +48,10 @@ impl HttpCap {
     ///
     /// This is `pub(crate)` so only code within policy-core can create it.
     /// PolicyGate creates these when HTTP authorization is granted.
+    ///
+    /// BREAKING CHANGE WARNING: Changing visibility to `pub` allows CAPABILITY FORGERY.
+    /// External code could make unauthorized HTTP requests without policy validation
+    /// (CWE-863: Incorrect Authorization).
     pub(crate) fn new() -> Self {
         Self { _private: () }
     }

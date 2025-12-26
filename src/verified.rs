@@ -61,8 +61,13 @@
 /// let value: String = verified.into_inner();
 /// assert_eq!(value, "safe-data");
 /// ```
+// BREAKING CHANGE WARNING: Do NOT add Default derive or implementation.
+// Default would allow creating "empty" verified values without validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Verified<T> {
+    // BREAKING CHANGE WARNING: This field MUST remain private.
+    // Making it public bypasses the validation bottleneck, allowing external code
+    // to construct Verified<T> with arbitrary values (CRITICAL SECURITY BYPASS).
     inner: T,
 }
 
@@ -83,6 +88,10 @@ impl<T> Verified<T> {
     ///
     /// This should only be called by trusted validation/sanitization code paths
     /// within the crate that have verified the input according to appropriate rules.
+    ///
+    /// BREAKING CHANGE WARNING: Changing visibility to `pub` creates a CRITICAL SECURITY BYPASS.
+    /// External code could create Verified<T> with any value, bypassing all sanitization and
+    /// allowing unvalidated data into sinks (CWE-20, CWE-74, CWE-89, CWE-117, CWE-79).
     #[allow(dead_code)] // Used by future sanitization code and tests
     pub(crate) fn new_unchecked(value: T) -> Self {
         Self { inner: value }
@@ -104,6 +113,10 @@ impl<T> Verified<T> {
         self.inner
     }
 }
+
+// BREAKING CHANGE WARNING: Do NOT implement Deref, From<T>, Default, or any other trait
+// that would allow bypassing the sanitization bottleneck. Verified<T> can ONLY be created
+// by sanitizers calling new_unchecked() after validation succeeds.
 
 /// Provides access to the verified value via the standard `AsRef` trait.
 ///

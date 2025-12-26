@@ -118,6 +118,9 @@ impl fmt::Display for SinkErrorKind {
 /// // let tainted = Tainted::new("bad".to_string());
 /// // sink.sink(&tainted); // Type mismatch!
 /// ```
+// BREAKING CHANGE WARNING: Do NOT modify the Sink trait signature.
+// The sink() method MUST accept &Verified<T>, not &T or &Tainted<T>.
+// Changing this defeats the entire validation bottleneck and allows unvalidated data into sinks.
 pub trait Sink<T> {
     /// Writes a verified value to the sink.
     ///
@@ -135,6 +138,9 @@ pub trait Sink<T> {
     /// // Only verified values can be sunk
     /// sink.sink(&verified).expect("should succeed");
     /// ```
+    /// BREAKING CHANGE WARNING: This signature MUST accept &Verified<T>, not &T or &Tainted<T>.
+    /// Changing it to accept &T or &Tainted<T> bypasses validation and enables injection attacks
+    /// (CWE-74, CWE-89, CWE-117, CWE-79).
     fn sink(&self, value: &Verified<T>) -> Result<(), SinkError>;
 
     /// Attempts to sink an unverified value (always fails).
@@ -160,6 +166,8 @@ pub trait Sink<T> {
     /// assert!(result.is_err());
     /// assert_eq!(result.unwrap_err().kind(), SinkErrorKind::Unverified);
     /// ```
+    /// BREAKING CHANGE WARNING: This method MUST unconditionally return Err.
+    /// Allowing tainted values to be sunk bypasses validation and enables all injection attacks.
     fn sink_untrusted(&self, _value: Tainted<T>) -> Result<(), SinkError> {
         Err(SinkError::new(SinkErrorKind::Unverified))
     }

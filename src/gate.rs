@@ -35,6 +35,9 @@ use crate::{
 /// assert!(ctx.log_cap().is_some());
 /// ```
 pub struct PolicyGate {
+    // BREAKING CHANGE WARNING: These fields MUST remain private.
+    // Making them public allows external code to modify policy requirements after construction,
+    // bypassing validation and enabling privilege escalation.
     meta: RequestMeta,
     requirements: Vec<PolicyReq>,
 }
@@ -119,6 +122,9 @@ impl PolicyGate {
     /// assert!(ctx.log_cap().is_some());
     /// ```
     pub fn build(self) -> Result<Ctx<Authorized>, Violation> {
+        // BREAKING CHANGE WARNING: This validate_all() call MUST happen FIRST, before creating
+        // any capabilities. Removing or reordering this creates a CRITICAL SECURITY BYPASS
+        // allowing unauthenticated/unauthorized users to obtain capabilities (CWE-306, CWE-863).
         // 1. Validate all policies FIRST
         self.validate_all()?;
 
@@ -164,9 +170,15 @@ impl PolicyGate {
     }
 
     /// Validates a single policy requirement.
+    ///
+    /// BREAKING CHANGE WARNING: The authentication checks in this method are CRITICAL.
+    /// Removing, weakening, or inverting these checks creates authentication/authorization bypass.
     fn validate_one(&self, req: &PolicyReq) -> Result<(), Violation> {
         match req {
             PolicyReq::Authenticated => {
+                // BREAKING CHANGE WARNING: This check MUST reject requests with no principal.
+                // Changing is_none() to is_some() inverts the logic (only unauthenticated users pass).
+                // Removing this check allows all requests to be "authenticated" (CWE-306).
                 if self.meta.principal.is_none() {
                     return Err(Violation::new(
                         ViolationKind::Unauthenticated,
@@ -175,6 +187,8 @@ impl PolicyGate {
                 }
             }
             PolicyReq::Authorized { action: _ } => {
+                // BREAKING CHANGE WARNING: This check MUST ensure a principal exists before authorizing.
+                // Removing this allows capabilities to be granted to no one (None becomes authorized).
                 if self.meta.principal.is_none() {
                     return Err(Violation::new(
                         ViolationKind::Unauthenticated,

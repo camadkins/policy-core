@@ -32,6 +32,9 @@
 /// ```
 #[derive(Debug, Clone, Copy)]
 pub struct AuditCap {
+    // BREAKING CHANGE WARNING: This field MUST remain private.
+    // Making it public allows external code to forge audit capabilities via struct literal,
+    // bypassing all policy validation and enabling unauthorized audit event emission.
     _private: (),
 }
 
@@ -40,6 +43,10 @@ impl AuditCap {
     ///
     /// This is `pub(crate)` to prevent external forgery. Only the policy
     /// gate can create capabilities after validating authorization.
+    ///
+    /// BREAKING CHANGE WARNING: Changing visibility to `pub` allows CAPABILITY FORGERY.
+    /// External code could emit audit events without authorization, enabling audit trail
+    /// manipulation and compliance violations (CWE-778: Insufficient Logging).
     pub(crate) fn new() -> Self {
         Self { _private: () }
     }

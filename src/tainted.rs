@@ -25,8 +25,12 @@ use std::fmt;
 /// // But you CANNOT use the value directly:
 /// // let query = format!("SELECT * FROM users WHERE name = '{}'", user_input); // Won't compile!
 /// ```
+// BREAKING CHANGE WARNING: Do NOT remove Clone - tainted values need to be duplicated for validation flow.
 #[derive(Clone)]
 pub struct Tainted<T> {
+    // BREAKING CHANGE WARNING: This field MUST remain private.
+    // Making it public bypasses taint tracking entirely (CWE-20: Improper Input Validation).
+    // External code must go through Sanitizer trait to access the value.
     inner: T,
 }
 
@@ -47,10 +51,18 @@ impl<T> Tainted<T> {
     /// the value before wrapping it in `Verified<T>`.
     ///
     /// External code cannot call this method and must go through the `Sanitizer` trait.
+    ///
+    /// BREAKING CHANGE WARNING: Changing visibility to `pub` creates a CRITICAL SECURITY BYPASS.
+    /// External code could extract raw values without validation, defeating the entire
+    /// taint tracking system and enabling injection attacks (CWE-74, CWE-89, CWE-117).
     pub(crate) fn into_inner(self) -> T {
         self.inner
     }
 }
+
+// BREAKING CHANGE WARNING: Do NOT add Deref, AsRef, Borrow, From<T>, Into<T>, or any other
+// implicit conversion traits to Tainted<T>. These would bypass the sanitization requirement
+// and allow tainted data to flow into sinks, defeating the security model entirely.
 
 impl<T: fmt::Debug> fmt::Debug for Tainted<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

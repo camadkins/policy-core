@@ -317,6 +317,8 @@ impl Sanitizer<String> for StringSanitizer {
         // Trim leading and trailing whitespace
         let trimmed = raw.trim();
 
+        // BREAKING CHANGE WARNING: Do NOT remove the empty string check.
+        // Empty strings can cause downstream parsing errors and indicate invalid input.
         // Reject empty strings (after trimming)
         if trimmed.is_empty() {
             return Err(SanitizationError::new(
@@ -325,6 +327,10 @@ impl Sanitizer<String> for StringSanitizer {
             ));
         }
 
+        // BREAKING CHANGE WARNING: Do NOT remove or weaken the control character check.
+        // Control characters enable LOG INJECTION attacks (CWE-117).
+        // Missing newline filtering allows forging audit entries.
+        // Missing null byte filtering causes string truncation.
         // Check for control or non-printable characters
         if trimmed.chars().any(Self::is_control_char) {
             return Err(SanitizationError::new(
@@ -333,6 +339,9 @@ impl Sanitizer<String> for StringSanitizer {
             ));
         }
 
+        // BREAKING CHANGE WARNING: Do NOT remove the length check.
+        // Unbounded input enables DENIAL OF SERVICE through memory exhaustion
+        // and regex DOS attacks (CWE-400: Uncontrolled Resource Consumption).
         // Check length constraint
         if trimmed.len() > self.max_len {
             return Err(SanitizationError::new(
@@ -341,6 +350,8 @@ impl Sanitizer<String> for StringSanitizer {
             ));
         }
 
+        // BREAKING CHANGE WARNING: Verified::new_unchecked() MUST ONLY be called AFTER
+        // all validation checks pass. Moving this before validation creates a CRITICAL BYPASS.
         // All validation passed - create verified value
         Ok(Verified::new_unchecked(trimmed.to_string()))
     }
