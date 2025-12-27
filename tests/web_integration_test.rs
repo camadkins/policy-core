@@ -1,4 +1,3 @@
-#![allow(deprecated)]
 //! Integration tests for web module extractors.
 //!
 //! These tests demonstrate the complete flow from HTTP request extraction
@@ -189,9 +188,9 @@ fn multiple_tainted_inputs_extracted() {
 
     let extraction = extract_unauthed(&adapter);
 
-    assert_eq!(extraction.inputs.query_params().count(), 2);
-    assert_eq!(extraction.inputs.headers().count(), 2);
-    assert_eq!(extraction.inputs.path_params().count(), 1);
+    assert_eq!(extraction.inputs.query_params_count(), 2);
+    assert_eq!(extraction.inputs.headers_count(), 2);
+    assert_eq!(extraction.inputs.path_params_count(), 1);
 }
 
 #[test]
@@ -259,9 +258,10 @@ fn request_id_included_in_http_metadata() {
     http.get(&verified_url);
 
     // Verify request ID is in recorded metadata
-    let requests = http.requests();
-    assert_eq!(requests.len(), 1);
-    assert_eq!(requests[0].request_id, request_id);
+    http.with_requests(|requests| {
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].request_id, request_id);
+    });
 }
 
 #[test]
@@ -293,11 +293,12 @@ fn multiple_requests_preserve_request_id() {
     }
 
     // All requests should have the same request ID
-    let requests = http.requests();
-    assert_eq!(requests.len(), 3);
-    for req in &requests {
-        assert_eq!(req.request_id, request_id);
-    }
+    http.with_requests(|requests| {
+        assert_eq!(requests.len(), 3);
+        for req in requests {
+            assert_eq!(req.request_id, request_id);
+        }
+    });
 }
 
 // ============================================================================

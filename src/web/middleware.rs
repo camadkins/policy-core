@@ -233,8 +233,8 @@ mod tests {
 
         let extraction = extract_unauthed(&adapter);
 
-        assert_eq!(extraction.inputs.query_params().count(), 1);
-        assert_eq!(extraction.inputs.headers().count(), 1);
+        assert_eq!(extraction.inputs.query_params_count(), 1);
+        assert_eq!(extraction.inputs.headers_count(), 1);
     }
 
     #[test]
@@ -272,8 +272,8 @@ mod tests {
 
         let extraction = extract_authed(&adapter).expect("should succeed");
 
-        assert_eq!(extraction.inputs.query_params().count(), 1);
-        assert_eq!(extraction.inputs.path_params().count(), 1);
+        assert_eq!(extraction.inputs.query_params_count(), 1);
+        assert_eq!(extraction.inputs.path_params_count(), 1);
     }
 
     #[test]

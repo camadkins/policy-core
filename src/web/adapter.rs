@@ -272,6 +272,30 @@ impl TaintedInputs {
     pub fn has_path_param(&self, key: &str) -> bool {
         self.path_params.contains_key(key)
     }
+
+    /// Returns the number of query parameters without cloning.
+    ///
+    /// This is more efficient than `.query_params().count()` as it
+    /// avoids iterating and cloning all values.
+    pub fn query_params_count(&self) -> usize {
+        self.query_params.len()
+    }
+
+    /// Returns the number of headers without cloning.
+    ///
+    /// This is more efficient than `.headers().count()` as it
+    /// avoids iterating and cloning all values.
+    pub fn headers_count(&self) -> usize {
+        self.headers.len()
+    }
+
+    /// Returns the number of path parameters without cloning.
+    ///
+    /// This is more efficient than `.path_params().count()` as it
+    /// avoids iterating and cloning all values.
+    pub fn path_params_count(&self) -> usize {
+        self.path_params.len()
+    }
 }
 
 #[cfg(test)]

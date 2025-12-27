@@ -287,14 +287,13 @@ impl VecSink {
         f(&self.values.borrow())
     }
 
-    /// Returns an iterator over values (lazy cloning).
+    /// Returns an iterator over values.
     ///
     /// # Performance Note
     ///
-    /// Due to `RefCell` interior mutability, this method clones the vector
-    /// before returning an iterator. However, iteration happens lazily, so if
-    /// you only need a few values, this can be more efficient than processing
-    /// the entire cloned vector.
+    /// **This method clones the entire value vector eagerly** when called.
+    /// Only the consumption of the returned iterator is lazy. If you don't
+    /// need to iterate all values, this still clones the full vector upfront.
     ///
     /// For zero-copy access, prefer [`with_values()`](Self::with_values).
     /// To consume the sink and take ownership, use [`into_vec()`](Self::into_vec).

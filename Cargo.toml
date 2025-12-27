@@ -44,14 +44,14 @@ libraries = [
 [profile.dev]
 opt-level = 0          # No optimization
 debug = 1              # Line tables only (not full debug info) - 20-30% faster builds
-split-debuginfo = "unpacked"  # Faster on Linux
+split-debuginfo = "unpacked"  # Supported on macOS and ELF targets (Linux); not supported on Windows
 incremental = true     # Enable incremental compilation
 
 # Test profile - optimized for fast test runs
 [profile.test]
 opt-level = 0
 debug = 1
-split-debuginfo = "unpacked"
+split-debuginfo = "unpacked"  # Supported on macOS and ELF targets (Linux); not supported on Windows
 incremental = true
 
 # Release profile - optimized for performance

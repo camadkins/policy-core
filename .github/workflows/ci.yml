@@ -191,7 +191,15 @@ jobs:
       - name: Run enforcement pack lints
         run: |
           # Set LD_LIBRARY_PATH to include nightly toolchain's lib directory for LLVM linking
-          export LD_LIBRARY_PATH="$(rustc +nightly --print sysroot)/lib:${LD_LIBRARY_PATH:-}"
+          SYSROOT=$(rustc +nightly --print sysroot) || {
+            echo "Error: Failed to get rustc sysroot" >&2
+            exit 1
+          }
+          if [ -z "$SYSROOT" ]; then
+            echo "Error: SYSROOT is empty" >&2
+            exit 1
+          fi
+          export LD_LIBRARY_PATH="${SYSROOT}/lib:${LD_LIBRARY_PATH:-}"
           # Use dylint-link as the rustc wrapper to ensure proper library naming
           export RUSTC_WRAPPER=dylint-link
           cargo dylint --all --workspace

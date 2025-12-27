@@ -51,7 +51,7 @@ pub fn handle_public_search(adapter: &RequestAdapter) -> Result<PublicSearchResu
     // 2. Get search query from tainted inputs
     let tainted_query = extraction.inputs.get_query("q").ok_or_else(|| {
         Violation::new(
-            crate::error::ViolationKind::Unauthenticated,
+            crate::error::ViolationKind::InvalidInput,
             "Missing query parameter 'q'",
         )
     })?;
@@ -191,7 +191,7 @@ pub fn handle_api_call(adapter: &RequestAdapter) -> Result<ApiCallResult, Violat
     // 4. Extract and sanitize tainted URL
     let tainted_url = extraction.inputs.get_query("url").ok_or_else(|| {
         Violation::new(
-            crate::error::ViolationKind::Unauthenticated,
+            crate::error::ViolationKind::InvalidInput,
             "Missing URL parameter",
         )
     })?;
@@ -205,11 +205,6 @@ pub fn handle_api_call(adapter: &RequestAdapter) -> Result<ApiCallResult, Violat
         verified_url.as_ref()
     ));
     http.get(&verified_url);
-
-    // 6. Verify request-id was included in HTTP metadata
-    http.with_requests(|requests| {
-        assert_eq!(requests[0].request_id, ctx.request_id());
-    });
 
     Ok(ApiCallResult {
         request_id: ctx.request_id().to_string(),
@@ -263,19 +258,13 @@ pub fn handle_admin_action(adapter: &RequestAdapter) -> Result<AdminActionResult
     let sanitizer = StringSanitizer::new(100).unwrap();
 
     let tainted_action = extraction.inputs.get_query("action").ok_or_else(|| {
-        Violation::new(
-            crate::error::ViolationKind::Unauthenticated,
-            "Missing action",
-        )
+        Violation::new(crate::error::ViolationKind::InvalidInput, "Missing action")
     })?;
 
     let verified_action = sanitizer.sanitize(tainted_action)?;
 
     let tainted_target = extraction.inputs.get_query("target").ok_or_else(|| {
-        Violation::new(
-            crate::error::ViolationKind::Unauthenticated,
-            "Missing target",
-        )
+        Violation::new(crate::error::ViolationKind::InvalidInput, "Missing target")
     })?;
 
     let verified_target = sanitizer.sanitize(tainted_target)?;

@@ -88,14 +88,13 @@ impl AuditTrail {
         f(&self.events.borrow())
     }
 
-    /// Returns an iterator over events (lazy cloning).
+    /// Returns an iterator over events.
     ///
     /// # Performance Note
     ///
-    /// Due to `RefCell` interior mutability, this method clones the vector
-    /// before returning an iterator. However, iteration happens lazily, so if
-    /// you only need a few events, this can be more efficient than processing
-    /// the entire cloned vector.
+    /// **This method clones the entire event vector eagerly** when called.
+    /// Only the consumption of the returned iterator is lazy. If you don't
+    /// need to iterate all events, this still clones the full vector upfront.
     ///
     /// For zero-copy access, prefer [`with_events()`](Self::with_events).
     ///
