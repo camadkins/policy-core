@@ -275,18 +275,18 @@ brew install llvm           # macOS
 
 The development profile uses `debug = 1` (line tables only) instead of `debug = 2` (full debug info), reducing build times by 20-30% with minimal impact on debugging capability. Release builds use thin LTO for optimal performance.
 
-## Security & Limitations
+## Security Considerations
 
-This library is not formally verified or security-audited. It demonstrates patterns, not a complete security solution.
+`policy-core` provides compile-time guarantees that prevent entire classes of vulnerabilities. However, like all security tools, it works best as part of a comprehensive defense strategy.
 
-**Limitations:**
+**Important Notes:**
 
-* Sanitizers implement example validation rules. Production systems require domain-specific logic.
-* Type-level enforcement prevents many errors but is not absolute. Unsafe code, deserialization, or FFI can break invariants.
-* This does not replace standard security practices: authentication, authorization, encryption, rate limiting, and input validation at system boundaries remain necessary.
-* The type system cannot prevent all logic errors. Review sanitizer implementations carefully.
+* The included sanitizers provide reference implementations. Production systems should implement domain-specific validation logic tailored to their threat model.
+* Type-level enforcement is strong but not absolute. Exercise standard precautions with `unsafe` code, deserialization, and FFI boundaries.
+* This library complements—but does not replace—authentication, authorization, encryption, rate limiting, and other security fundamentals.
+* Review your sanitizer implementations carefully. The type system enforces the *structure* of validation, not the *correctness* of validation logic.
 
-Use this library as part of a defense-in-depth strategy. See [SECURITY.md](SECURITY.md) and [DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md) for detailed discussions.
+For threat model details and best practices, see [SECURITY.md](SECURITY.md) and [DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md).
 
 ## Documentation
 
@@ -297,57 +297,24 @@ Use this library as part of a defense-in-depth strategy. See [SECURITY.md](SECUR
 - **Enforcement Pack:** [`dylint/README.md`](dylint/README.md)
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 
-## Publishing & Releases
+## Versioning & Releases
 
-**Current Status:** This project is in demonstration/research phase (v0.1.x). The API may change as patterns evolve.
+This project follows [Semantic Versioning](https://semver.org/). See [crates.io/crates/policy-core](https://crates.io/crates/policy-core) for the latest stable version and [CHANGELOG.md](CHANGELOG.md) for release history.
 
-### For Maintainers: Release Process
-
-Before publishing a new version to crates.io, complete this checklist:
-
-1. **Version Bump**
-   - Update version in `Cargo.toml`
-   - Follow [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`
-   - For pre-1.0 versions, breaking changes increment MINOR
-
-2. **Update CHANGELOG**
-   - Move items from `[Unreleased]` to new version section
-   - Add release date in format: `## [X.Y.Z] - YYYY-MM-DD`
-   - Update comparison links at bottom of CHANGELOG.md
-
-3. **Verify CI Passes**
-   - All tests pass: `cargo test --all-features`
-   - No clippy warnings: `cargo clippy --all-features -- -D warnings`
-   - Formatting is correct: `cargo fmt --check`
-   - Enforcement lints pass: `cargo dylint --all --workspace`
-   - Documentation builds: `cargo doc --no-deps --all-features`
-   - Package verification succeeds: `cargo publish --dry-run`
-
-4. **Create Git Tag**
-   ```bash
-   git tag -a v0.X.Y -m "Release v0.X.Y"
-   git push origin v0.X.Y
-   ```
-
-5. **Publish to Crates.io**
-   ```bash
-   cargo publish
-   ```
-
-**Important:** Published crates are permanent. You cannot overwrite or delete a published version. If you discover a critical issue after publishing, use `cargo yank <version>` to mark it as unavailable (but not deleted). Then publish a fixed version.
-
-**Versioning Strategy:** See [CHANGELOG.md](CHANGELOG.md) for version history and milestone mapping.
+**API Stability:** The core types and traits (`Tainted`, `Verified`, `Sanitizer`, `Sink`) maintain backwards compatibility across minor releases. New features are additive.
 
 ## Contributing
 
-Contributions are accepted. Open an issue to discuss significant changes before starting work.
+Contributions are welcome! For significant changes, please open an issue first to discuss your approach.
 
-**Guidelines:**
+**Before submitting a pull request:**
 
-* Respect the core philosophy: explicit policies, no hidden conversions, compile-time safety where possible
-* Add tests for new sanitizers or sinks
-* Run `cargo fmt`, `cargo clippy --all-features -- -D warnings`, `cargo test --all-features`, and `cargo dylint --all --workspace`
-* Document what guarantees do and do not exist
+* Run quality checks: `cargo fmt`, `cargo clippy --all-features -- -D warnings`, `cargo test --all-features`, `cargo dylint --all --workspace`
+* Add tests for new functionality (sanitizers, sinks, capabilities)
+* Update documentation to reflect behavior and guarantees
+* Ensure changes align with the core philosophy: explicit policies, no implicit conversions, compile-time safety
+
+See [DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md) for architectural principles.
 
 ## License
 
