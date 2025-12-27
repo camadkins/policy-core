@@ -378,9 +378,9 @@ mod tests {
 
         let inputs = adapter.extract_tainted_inputs();
 
-        assert_eq!(inputs.query_params().count(), 1);
-        assert_eq!(inputs.headers().count(), 1);
-        assert_eq!(inputs.path_params().count(), 1);
+        assert_eq!(inputs.query_params_count(), 1);
+        assert_eq!(inputs.headers_count(), 1);
+        assert_eq!(inputs.path_params_count(), 1);
     }
 
     #[test]
