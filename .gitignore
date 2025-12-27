@@ -4,3 +4,4 @@ dylint/target/
 **/.rustc_info.json
 .claude
 *.local.md
+.cargo/

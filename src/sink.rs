@@ -251,7 +251,76 @@ impl VecSink {
         self.values.borrow().is_empty()
     }
 
+    /// Provides borrowed access to values via callback (zero-copy).
+    ///
+    /// This method allows you to access the value list without cloning by
+    /// passing a closure that receives a borrowed slice.
+    ///
+    /// # Performance
+    ///
+    /// This is the most efficient way to read values when you don't need to
+    /// own them. The closure receives `&[String]` and can iterate, filter,
+    /// or perform any read operation without allocating.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use policy_core::{VecSink, Sink, Verified, Tainted, Sanitizer, StringSanitizer};
+    ///
+    /// let sink = VecSink::new();
+    /// let sanitizer = StringSanitizer::new(100).unwrap();
+    /// let verified = sanitizer.sanitize(Tainted::new("test".to_string())).unwrap();
+    /// sink.sink(&verified).unwrap();
+    ///
+    /// // Zero-copy access via callback
+    /// sink.with_values(|values| {
+    ///     println!("Value count: {}", values.len());
+    ///     for value in values {
+    ///         println!("  {}", value);
+    ///     }
+    /// });
+    /// ```
+    pub fn with_values<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&[String]) -> R,
+    {
+        f(&self.values.borrow())
+    }
+
+    /// Returns an iterator over values.
+    ///
+    /// # Performance Note
+    ///
+    /// **This method clones the entire value vector eagerly** when called.
+    /// Only the consumption of the returned iterator is lazy. If you don't
+    /// need to iterate all values, this still clones the full vector upfront.
+    ///
+    /// For zero-copy access, prefer [`with_values()`](Self::with_values).
+    /// To consume the sink and take ownership, use [`into_vec()`](Self::into_vec).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use policy_core::{VecSink, Sink, Verified, Tainted, Sanitizer, StringSanitizer};
+    ///
+    /// let sink = VecSink::new();
+    /// let sanitizer = StringSanitizer::new(100).unwrap();
+    /// let verified = sanitizer.sanitize(Tainted::new("test".to_string())).unwrap();
+    /// sink.sink(&verified).unwrap();
+    ///
+    /// // Iterator-based access
+    /// for value in sink.iter() {
+    ///     println!("{}", value);
+    /// }
+    /// ```
+    pub fn iter(&self) -> impl Iterator<Item = String> {
+        self.values.borrow().clone().into_iter()
+    }
+
     /// Consumes the sink and returns the collected values.
+    ///
+    /// This is the most efficient way to extract values when you're done with
+    /// the sink, as it moves the data instead of cloning.
     ///
     /// # Examples
     ///
@@ -268,6 +337,14 @@ impl VecSink {
 
     /// Returns a snapshot of the current values in the sink.
     ///
+    /// # Performance Note
+    ///
+    /// **This method clones the entire value vector.**
+    ///
+    /// **Deprecated:** Use [`iter()`](Self::iter) for lazy iteration,
+    /// [`with_values()`](Self::with_values) for zero-copy access, or
+    /// [`into_vec()`](Self::into_vec) to consume the sink.
+    ///
     /// # Examples
     ///
     /// ```
@@ -277,6 +354,10 @@ impl VecSink {
     /// let values = sink.to_vec();
     /// assert!(values.is_empty());
     /// ```
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use `iter()`, `with_values()`, or `into_vec()` for better performance"
+    )]
     pub fn to_vec(&self) -> Vec<String> {
         self.values.borrow().clone()
     }
@@ -298,6 +379,7 @@ impl Sink<String> for VecSink {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use crate::{Sanitizer, StringSanitizer};

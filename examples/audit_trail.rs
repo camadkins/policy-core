@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! Audit trail demonstration.
 //!
 //! This example shows how to use the audit trail system for compliance logging:
@@ -15,7 +16,10 @@ use policy_core::{
 };
 
 fn main() {
-    println!("=== Audit Trail Example ===\n");
+    println!(
+        "=== Audit Trail Example ===
+"
+    );
 
     // Create an audit trail for recording events
     let trail = AuditTrail::new();
@@ -46,7 +50,10 @@ fn main() {
     println!("✓ Recorded failed login attempt");
 
     // Scenario 2: Authorization Events
-    println!("\n--- Scenario 2: Authorization Events ---");
+    println!(
+        "
+--- Scenario 2: Authorization Events ---"
+    );
 
     let meta = RequestMeta {
         request_id: "req-admin-001".to_string(),
@@ -103,7 +110,10 @@ fn main() {
     }
 
     // Scenario 3: Resource Access Events
-    println!("\n--- Scenario 3: Resource Access Events ---");
+    println!(
+        "
+--- Scenario 3: Resource Access Events ---"
+    );
 
     let data_access = AuditEvent::new(
         "req-data-001",
@@ -118,7 +128,10 @@ fn main() {
     println!("✓ Recorded resource access");
 
     // Scenario 4: State Changes
-    println!("\n--- Scenario 4: State Changes ---");
+    println!(
+        "
+--- Scenario 4: State Changes ---"
+    );
 
     let state_change = AuditEvent::new(
         "req-change-001",
@@ -133,17 +146,26 @@ fn main() {
     println!("✓ Recorded state change");
 
     // Query the audit trail
-    println!("\n--- Audit Trail Summary ---");
+    println!(
+        "
+--- Audit Trail Summary ---"
+    );
     let events = trail.events();
     println!("Total events recorded: {}", events.len());
 
-    println!("\n=== Key Takeaways ===");
+    println!(
+        "
+=== Key Takeaways ==="
+    );
     println!("1. Audit events are structured and queryable");
     println!("2. Different event types for different operations");
     println!("3. Outcomes track success/error/denial");
     println!("4. AuditCap gates audit trail access");
     println!("5. Provides compliance-grade audit logging");
-    println!("\nIn production:");
+    println!(
+        "
+In production:"
+    );
     println!("  - Persist audit trail to immutable storage");
     println!("  - Implement retention policies");
     println!("  - Add encryption for sensitive audit data");

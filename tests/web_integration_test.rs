@@ -23,7 +23,7 @@ fn unauthed_extraction_full_flow() {
     assert!(extraction.context.principal().is_none());
 
     // Inputs are tainted
-    assert!(extraction.inputs.query_params().contains_key("search"));
+    assert!(extraction.inputs.has_query_param("search"));
 
     // For public endpoints, application would sanitize inputs and use them
     // without going through PolicyGate (since no capabilities needed)
@@ -48,7 +48,7 @@ fn authed_extraction_full_flow() {
     assert_eq!(extraction.context.principal().unwrap().id, "user-alice");
 
     // Inputs are tainted
-    assert!(extraction.inputs.query_params().contains_key("filter"));
+    assert!(extraction.inputs.has_query_param("filter"));
 }
 
 #[test]
@@ -107,7 +107,7 @@ fn complete_flow_authed_to_authorized() {
     assert_eq!(ctx.principal().unwrap().id, "user-bob");
 
     // 5. Sanitize tainted inputs
-    let tainted_url = extraction.inputs.query_params().get("url").unwrap().clone();
+    let tainted_url = extraction.inputs.get_query("url").unwrap().clone();
 
     let sanitizer = StringSanitizer::new(256).unwrap();
     let verified_url = sanitizer
@@ -160,12 +160,7 @@ fn flow_sanitization_required_for_sinks() {
         .expect("authorized");
 
     // 3. Must sanitize before using in sink
-    let tainted_name = extraction
-        .inputs
-        .query_params()
-        .get("name")
-        .unwrap()
-        .clone();
+    let tainted_name = extraction.inputs.get_query("name").unwrap().clone();
 
     let sanitizer = StringSanitizer::new(100).unwrap();
     let verified_name = sanitizer.sanitize(tainted_name).expect("valid");
@@ -193,9 +188,9 @@ fn multiple_tainted_inputs_extracted() {
 
     let extraction = extract_unauthed(&adapter);
 
-    assert_eq!(extraction.inputs.query_params().len(), 2);
-    assert_eq!(extraction.inputs.headers().len(), 2);
-    assert_eq!(extraction.inputs.path_params().len(), 1);
+    assert_eq!(extraction.inputs.query_params_count(), 2);
+    assert_eq!(extraction.inputs.headers_count(), 2);
+    assert_eq!(extraction.inputs.path_params_count(), 1);
 }
 
 #[test]
@@ -257,15 +252,16 @@ fn request_id_included_in_http_metadata() {
     // Make HTTP request
     let http = ctx.http().expect("HttpCap granted");
     let sanitizer = StringSanitizer::new(256).unwrap();
-    let tainted_url = extraction.inputs.query_params().get("url").unwrap().clone();
+    let tainted_url = extraction.inputs.get_query("url").unwrap().clone();
     let verified_url = sanitizer.sanitize(tainted_url).expect("valid");
 
     http.get(&verified_url);
 
     // Verify request ID is in recorded metadata
-    let requests = http.requests();
-    assert_eq!(requests.len(), 1);
-    assert_eq!(requests[0].request_id, request_id);
+    http.with_requests(|requests| {
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].request_id, request_id);
+    });
 }
 
 #[test]
@@ -297,11 +293,12 @@ fn multiple_requests_preserve_request_id() {
     }
 
     // All requests should have the same request ID
-    let requests = http.requests();
-    assert_eq!(requests.len(), 3);
-    for req in &requests {
-        assert_eq!(req.request_id, request_id);
-    }
+    http.with_requests(|requests| {
+        assert_eq!(requests.len(), 3);
+        for req in requests {
+            assert_eq!(req.request_id, request_id);
+        }
+    });
 }
 
 // ============================================================================
@@ -467,7 +464,7 @@ fn end_to_end_authorized_path_succeeds() {
     let logger = ctx.log().unwrap();
 
     let sanitizer = StringSanitizer::new(256).unwrap();
-    let tainted_url = extraction.inputs.query_params().get("url").unwrap().clone();
+    let tainted_url = extraction.inputs.get_query("url").unwrap().clone();
     let verified_url = sanitizer.sanitize(tainted_url).expect("valid URL");
 
     logger.info(format_args!("Making request"));

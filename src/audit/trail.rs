@@ -49,6 +49,77 @@ impl AuditTrail {
         self.events.borrow_mut().push(event);
     }
 
+    /// Provides borrowed access to events via callback (zero-copy).
+    ///
+    /// This method allows you to access the event list without cloning by
+    /// passing a closure that receives a borrowed slice.
+    ///
+    /// # Performance
+    ///
+    /// This is the most efficient way to read events when you don't need to
+    /// own them. The closure receives `&[AuditEvent]` and can iterate, filter,
+    /// or perform any read operation without allocating.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use policy_core::audit::{AuditTrail, AuditEvent, AuditEventKind, AuditOutcome};
+    ///
+    /// let trail = AuditTrail::new();
+    /// trail.record(AuditEvent::new(
+    ///     "req-1",
+    ///     Some("user@example.com"),
+    ///     AuditEventKind::AdminAction,
+    ///     AuditOutcome::Success,
+    /// ));
+    ///
+    /// // Zero-copy access via callback
+    /// trail.with_events(|events| {
+    ///     println!("Event count: {}", events.len());
+    ///     for event in events {
+    ///         println!("  {}", event.request_id());
+    ///     }
+    /// });
+    /// ```
+    pub fn with_events<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&[AuditEvent]) -> R,
+    {
+        f(&self.events.borrow())
+    }
+
+    /// Returns an iterator over events.
+    ///
+    /// # Performance Note
+    ///
+    /// **This method clones the entire event vector eagerly** when called.
+    /// Only the consumption of the returned iterator is lazy. If you don't
+    /// need to iterate all events, this still clones the full vector upfront.
+    ///
+    /// For zero-copy access, prefer [`with_events()`](Self::with_events).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use policy_core::audit::{AuditTrail, AuditEvent, AuditEventKind, AuditOutcome};
+    ///
+    /// let trail = AuditTrail::new();
+    /// trail.record(AuditEvent::new(
+    ///     "req-1",
+    ///     Some("user@example.com"),
+    ///     AuditEventKind::AdminAction,
+    ///     AuditOutcome::Success,
+    /// ));
+    ///
+    /// // Iterator-based access
+    /// for event in trail.iter() {
+    ///     println!("{}", event.request_id());
+    /// }
+    /// ```
+    pub fn iter(&self) -> impl Iterator<Item = AuditEvent> {
+        self.events.borrow().clone().into_iter()
+    }
+
     /// Returns a snapshot of all recorded events.
     ///
     /// # Performance Note
@@ -58,13 +129,17 @@ impl AuditTrail {
     /// This is intentional to avoid holding an immutable borrow of the internal
     /// `RefCell`, but it means the cost is O(n) where n is the number of events.
     ///
+    /// **Deprecated:** Use [`iter()`](Self::iter) for lazy iteration or
+    /// [`with_events()`](Self::with_events) for zero-copy access.
+    ///
     /// This method is designed for:
     /// - Testing and verification (reading a small number of events)
     /// - Periodic snapshots for export/persistence
     ///
     /// For large audit trails, consider:
     /// - Using `len()` or `is_empty()` for simple checks (no cloning)
-    /// - Implementing a custom iterator or streaming interface
+    /// - Using `with_events()` for zero-copy access
+    /// - Using `iter()` for lazy iteration
     /// - Integrating with a persistent audit backend directly
     ///
     /// # Example
@@ -84,6 +159,10 @@ impl AuditTrail {
     /// let snapshot = trail.events();
     /// assert_eq!(snapshot.len(), 1);
     /// ```
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use `iter()` or `with_events()` for better performance"
+    )]
     pub fn events(&self) -> Vec<AuditEvent> {
         self.events.borrow().clone()
     }
@@ -123,6 +202,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn audit_trail_records_events() {
         let trail = AuditTrail::new();
 

@@ -134,7 +134,7 @@ pub struct AuthenticatedExtraction {
 /// assert!(extraction.context.principal().is_none());
 ///
 /// // Inputs are tainted
-/// assert!(extraction.inputs.query_params().contains_key("search"));
+/// assert!(extraction.inputs.has_query_param("search"));
 /// ```
 pub fn extract_unauthed(adapter: &RequestAdapter) -> UnauthenticatedExtraction {
     let meta = adapter.extract_metadata();
@@ -233,8 +233,8 @@ mod tests {
 
         let extraction = extract_unauthed(&adapter);
 
-        assert_eq!(extraction.inputs.query_params().len(), 1);
-        assert_eq!(extraction.inputs.headers().len(), 1);
+        assert_eq!(extraction.inputs.query_params_count(), 1);
+        assert_eq!(extraction.inputs.headers_count(), 1);
     }
 
     #[test]
@@ -272,8 +272,8 @@ mod tests {
 
         let extraction = extract_authed(&adapter).expect("should succeed");
 
-        assert_eq!(extraction.inputs.query_params().len(), 1);
-        assert_eq!(extraction.inputs.path_params().len(), 1);
+        assert_eq!(extraction.inputs.query_params_count(), 1);
+        assert_eq!(extraction.inputs.path_params_count(), 1);
     }
 
     #[test]

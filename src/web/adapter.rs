@@ -1,6 +1,7 @@
 //! Request adapter for mapping HTTP requests to policy-core types.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::request::{Principal, RequestMeta};
 use crate::Tainted;
@@ -40,7 +41,7 @@ use super::{ExtractMetadata, ExtractTaintedInputs};
 ///
 /// // Extract tainted inputs for sanitization
 /// let inputs = adapter.extract_tainted_inputs();
-/// assert!(inputs.query_params().contains_key("search"));
+/// assert!(inputs.has_query_param("search"));
 /// ```
 #[derive(Debug, Clone)]
 pub struct RequestAdapter {
@@ -49,11 +50,14 @@ pub struct RequestAdapter {
     /// Authenticated principal (optional)
     principal: Option<Principal>,
     /// Query parameters from URL (all tainted)
-    query_params: HashMap<String, String>,
+    /// Uses Arc for cheap cloning during extraction
+    query_params: Arc<HashMap<String, String>>,
     /// Request headers (all tainted)
-    headers: HashMap<String, String>,
+    /// Uses Arc for cheap cloning during extraction
+    headers: Arc<HashMap<String, String>>,
     /// Path parameters from routing (all tainted)
-    path_params: HashMap<String, String>,
+    /// Uses Arc for cheap cloning during extraction
+    path_params: Arc<HashMap<String, String>>,
 }
 
 impl RequestAdapter {
@@ -115,9 +119,9 @@ impl RequestAdapter {
         Self {
             request_id,
             principal: None,
-            query_params: HashMap::new(),
-            headers: HashMap::new(),
-            path_params: HashMap::new(),
+            query_params: Arc::new(HashMap::new()),
+            headers: Arc::new(HashMap::new()),
+            path_params: Arc::new(HashMap::new()),
         }
     }
 
@@ -134,21 +138,21 @@ impl RequestAdapter {
     ///
     /// All query parameters will be wrapped in `Tainted<T>` when extracted.
     pub fn add_query_param(&mut self, key: String, value: String) {
-        self.query_params.insert(key, value);
+        Arc::make_mut(&mut self.query_params).insert(key, value);
     }
 
     /// Adds a header to the adapter.
     ///
     /// All headers will be wrapped in `Tainted<T>` when extracted.
     pub fn add_header(&mut self, key: String, value: String) {
-        self.headers.insert(key, value);
+        Arc::make_mut(&mut self.headers).insert(key, value);
     }
 
     /// Adds a path parameter to the adapter.
     ///
     /// All path parameters will be wrapped in `Tainted<T>` when extracted.
     pub fn add_path_param(&mut self, key: String, value: String) {
-        self.path_params.insert(key, value);
+        Arc::make_mut(&mut self.path_params).insert(key, value);
     }
 
     /// Returns a reference to the request ID.
@@ -174,21 +178,9 @@ impl ExtractMetadata for RequestAdapter {
 impl ExtractTaintedInputs for RequestAdapter {
     fn extract_tainted_inputs(&self) -> TaintedInputs {
         TaintedInputs {
-            query_params: self
-                .query_params
-                .iter()
-                .map(|(k, v)| (k.clone(), Tainted::new(v.clone())))
-                .collect(),
-            headers: self
-                .headers
-                .iter()
-                .map(|(k, v)| (k.clone(), Tainted::new(v.clone())))
-                .collect(),
-            path_params: self
-                .path_params
-                .iter()
-                .map(|(k, v)| (k.clone(), Tainted::new(v.clone())))
-                .collect(),
+            query_params: Arc::clone(&self.query_params),
+            headers: Arc::clone(&self.headers),
+            path_params: Arc::clone(&self.path_params),
         }
     }
 }
@@ -197,6 +189,8 @@ impl ExtractTaintedInputs for RequestAdapter {
 ///
 /// All values are wrapped in `Tainted<T>` to enforce sanitization before use.
 /// This type provides read-only access to inputs - modification is not allowed.
+///
+/// Uses `Arc` internally for efficient sharing of input data without cloning.
 ///
 /// # Examples
 ///
@@ -208,33 +202,99 @@ impl ExtractTaintedInputs for RequestAdapter {
 /// adapter.add_query_param("username".to_string(), "alice".to_string());
 ///
 /// let inputs = adapter.extract_tainted_inputs();
-/// let tainted_username = inputs.query_params().get("username").unwrap();
+/// let tainted_username = inputs.get_query("username").unwrap();
 ///
 /// // Must sanitize before use
 /// let sanitizer = StringSanitizer::new(50).unwrap();
-/// let verified_username = sanitizer.sanitize(tainted_username.clone()).unwrap();
+/// let verified_username = sanitizer.sanitize(tainted_username).unwrap();
 /// ```
 #[derive(Debug, Clone)]
 pub struct TaintedInputs {
-    query_params: HashMap<String, Tainted<String>>,
-    headers: HashMap<String, Tainted<String>>,
-    path_params: HashMap<String, Tainted<String>>,
+    query_params: Arc<HashMap<String, String>>,
+    headers: Arc<HashMap<String, String>>,
+    path_params: Arc<HashMap<String, String>>,
 }
 
 impl TaintedInputs {
-    /// Returns a reference to the tainted query parameters.
-    pub fn query_params(&self) -> &HashMap<String, Tainted<String>> {
-        &self.query_params
+    /// Gets a tainted query parameter by key.
+    ///
+    /// Returns `None` if the key doesn't exist.
+    pub fn get_query(&self, key: &str) -> Option<Tainted<String>> {
+        self.query_params.get(key).map(|v| Tainted::new(v.clone()))
     }
 
-    /// Returns a reference to the tainted headers.
-    pub fn headers(&self) -> &HashMap<String, Tainted<String>> {
-        &self.headers
+    /// Gets a tainted header by key.
+    ///
+    /// Returns `None` if the key doesn't exist.
+    pub fn get_header(&self, key: &str) -> Option<Tainted<String>> {
+        self.headers.get(key).map(|v| Tainted::new(v.clone()))
     }
 
-    /// Returns a reference to the tainted path parameters.
-    pub fn path_params(&self) -> &HashMap<String, Tainted<String>> {
-        &self.path_params
+    /// Gets a tainted path parameter by key.
+    ///
+    /// Returns `None` if the key doesn't exist.
+    pub fn get_path_param(&self, key: &str) -> Option<Tainted<String>> {
+        self.path_params.get(key).map(|v| Tainted::new(v.clone()))
+    }
+
+    /// Returns an iterator over query parameters as (key, Tainted<value>) pairs.
+    pub fn query_params(&self) -> impl Iterator<Item = (&str, Tainted<String>)> + '_ {
+        self.query_params
+            .iter()
+            .map(|(k, v)| (k.as_str(), Tainted::new(v.clone())))
+    }
+
+    /// Returns an iterator over headers as (key, Tainted<value>) pairs.
+    pub fn headers(&self) -> impl Iterator<Item = (&str, Tainted<String>)> + '_ {
+        self.headers
+            .iter()
+            .map(|(k, v)| (k.as_str(), Tainted::new(v.clone())))
+    }
+
+    /// Returns an iterator over path parameters as (key, Tainted<value>) pairs.
+    pub fn path_params(&self) -> impl Iterator<Item = (&str, Tainted<String>)> + '_ {
+        self.path_params
+            .iter()
+            .map(|(k, v)| (k.as_str(), Tainted::new(v.clone())))
+    }
+
+    /// Checks if a query parameter with the given key exists.
+    pub fn has_query_param(&self, key: &str) -> bool {
+        self.query_params.contains_key(key)
+    }
+
+    /// Checks if a header with the given key exists.
+    pub fn has_header(&self, key: &str) -> bool {
+        self.headers.contains_key(key)
+    }
+
+    /// Checks if a path parameter with the given key exists.
+    pub fn has_path_param(&self, key: &str) -> bool {
+        self.path_params.contains_key(key)
+    }
+
+    /// Returns the number of query parameters without cloning.
+    ///
+    /// This is more efficient than `.query_params().count()` as it
+    /// avoids iterating and cloning all values.
+    pub fn query_params_count(&self) -> usize {
+        self.query_params.len()
+    }
+
+    /// Returns the number of headers without cloning.
+    ///
+    /// This is more efficient than `.headers().count()` as it
+    /// avoids iterating and cloning all values.
+    pub fn headers_count(&self) -> usize {
+        self.headers.len()
+    }
+
+    /// Returns the number of path parameters without cloning.
+    ///
+    /// This is more efficient than `.path_params().count()` as it
+    /// avoids iterating and cloning all values.
+    pub fn path_params_count(&self) -> usize {
+        self.path_params.len()
     }
 }
 
@@ -267,7 +327,7 @@ mod tests {
         adapter.add_query_param("search".to_string(), "test".to_string());
 
         let inputs = adapter.extract_tainted_inputs();
-        assert!(inputs.query_params().contains_key("search"));
+        assert!(inputs.has_query_param("search"));
     }
 
     #[test]
@@ -276,7 +336,7 @@ mod tests {
         adapter.add_header("X-Custom".to_string(), "value".to_string());
 
         let inputs = adapter.extract_tainted_inputs();
-        assert!(inputs.headers().contains_key("X-Custom"));
+        assert!(inputs.has_header("X-Custom"));
     }
 
     #[test]
@@ -285,7 +345,7 @@ mod tests {
         adapter.add_path_param("id".to_string(), "123".to_string());
 
         let inputs = adapter.extract_tainted_inputs();
-        assert!(inputs.path_params().contains_key("id"));
+        assert!(inputs.has_path_param("id"));
     }
 
     #[test]
@@ -318,9 +378,9 @@ mod tests {
 
         let inputs = adapter.extract_tainted_inputs();
 
-        assert_eq!(inputs.query_params().len(), 1);
-        assert_eq!(inputs.headers().len(), 1);
-        assert_eq!(inputs.path_params().len(), 1);
+        assert_eq!(inputs.query_params_count(), 1);
+        assert_eq!(inputs.headers_count(), 1);
+        assert_eq!(inputs.path_params_count(), 1);
     }
 
     #[test]
@@ -329,10 +389,9 @@ mod tests {
         adapter.add_query_param("key".to_string(), "value".to_string());
 
         let inputs = adapter.extract_tainted_inputs();
-        let params = inputs.query_params();
 
-        // This verifies the API is read-only - we can only get references
-        assert!(params.get("key").is_some());
+        // This verifies the API provides tainted values
+        assert!(inputs.get_query("key").is_some());
     }
 
     #[test]
@@ -343,8 +402,11 @@ mod tests {
         let inputs1 = adapter.extract_tainted_inputs();
         let inputs2 = adapter.extract_tainted_inputs();
 
-        // Both should have the same data
-        assert_eq!(inputs1.query_params().len(), inputs2.query_params().len());
+        // Both should have the same data (via Arc sharing)
+        assert_eq!(
+            inputs1.query_params().count(),
+            inputs2.query_params().count()
+        );
     }
 
     // Tests for request_id validation (issue #80)

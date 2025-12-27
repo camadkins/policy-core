@@ -144,6 +144,7 @@ impl<'a> PolicyAudit<'a> {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use crate::audit::{AuditEventKind, AuditOutcome};

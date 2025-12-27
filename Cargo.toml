@@ -39,3 +39,30 @@ proptest = "1.5"
 libraries = [
     { path = "dylint/lints/*" },
 ]
+
+# Development profile - optimized for fast iteration
+[profile.dev]
+opt-level = 0          # No optimization
+debug = 1              # Line tables only (not full debug info) - 20-30% faster builds
+split-debuginfo = "unpacked"  # Supported on macOS and ELF targets (Linux); not supported on Windows
+incremental = true     # Enable incremental compilation
+
+# Test profile - optimized for fast test runs
+[profile.test]
+opt-level = 0
+debug = 1
+split-debuginfo = "unpacked"  # Supported on macOS and ELF targets (Linux); not supported on Windows
+incremental = true
+
+# Release profile - optimized for performance
+[profile.release]
+opt-level = 3          # Full optimizations
+debug = false
+lto = "thin"           # Thin LTO for balance
+codegen-units = 16     # Parallel codegen
+strip = true           # Strip symbols
+
+# Custom profile for development with some optimization
+[profile.dev-opt]
+inherits = "dev"
+opt-level = 1          # Minimal optimization for faster runtime during dev
