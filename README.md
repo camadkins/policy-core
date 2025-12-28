@@ -286,14 +286,14 @@ The development profile uses `debug = 1` (line tables only) instead of `debug = 
 * This library complements—but does not replace—authentication, authorization, encryption, rate limiting, and other security fundamentals.
 * Review your sanitizer implementations carefully. The type system enforces the *structure* of validation, not the *correctness* of validation logic.
 
-For threat model details and best practices, see [SECURITY.md](SECURITY.md) and [DESIGN_PHILOSOPHY.md](https://github.com/camadkins/policy-core/blob/main/DESIGN_PHILOSOPHY.md).
+For threat model details and best practices, see [SECURITY.md](SECURITY.md) and [DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md).
 
 ## Documentation
 
 - **API Reference:** [docs.rs/policy-core](https://docs.rs/policy-core)
 - **Examples:** [`examples/`](examples/) directory
 - **Security Model:** [SECURITY.md](SECURITY.md)
-- **Design Rationale:** [DESIGN_PHILOSOPHY.md](https://github.com/camadkins/policy-core/blob/main/DESIGN_PHILOSOPHY.md)
+- **Design Rationale:** [DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md)
 - **Enforcement Pack:** [`dylint/README.md`](dylint/README.md)
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 
@@ -314,7 +314,7 @@ Contributions are welcome! For significant changes, please open an issue first t
 * Update documentation to reflect behavior and guarantees
 * Ensure changes align with the core philosophy: explicit policies, no implicit conversions, compile-time safety
 
-See [DESIGN_PHILOSOPHY.md](https://github.com/camadkins/policy-core/blob/main/DESIGN_PHILOSOPHY.md) for architectural principles.
+See [DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md) for architectural principles.
 
 ## License
 

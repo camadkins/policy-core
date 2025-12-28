@@ -1,5 +1,8 @@
 # Security Policy
 
+<!-- Note: This file uses relative links (e.g., ARCHITECTURE.md) instead of absolute GitHub URLs
+     for maximum portability across forks, branches, and local clones. -->
+
 ## Project Status
 
 **IMPORTANT:** `policy-core` is a **research and demonstration project** exploring compile-time policy enforcement patterns in Rust. It is **NOT** production-ready and should **NOT** be used in security-critical systems without extensive review and testing.
@@ -100,7 +103,7 @@ If you discover a security vulnerability in `policy-core`:
 ### When Using policy-core
 
 1. **Understand the Guarantees**
-   - Read [ARCHITECTURE.md](https://github.com/camadkins/policy-core/blob/main/ARCHITECTURE.md) and [DESIGN_PHILOSOPHY.md](https://github.com/camadkins/policy-core/blob/main/DESIGN_PHILOSOPHY.md)
+   - Read [ARCHITECTURE.md](ARCHITECTURE.md) and [DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md)
    - Understand what the type system prevents and what it doesn't
 
 2. **Taint All External Input**
@@ -167,7 +170,7 @@ When adding new features, include tests for:
 - Bypass attempts
 - Error message safety (no information leakage)
 
-See [CONTRIBUTING.md](https://github.com/camadkins/policy-core/blob/main/CONTRIBUTING.md) for testing guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for testing guidelines.
 
 ## Threat Model
 
@@ -245,4 +248,4 @@ For security concerns:
 
 For general questions:
 - GitHub Issues (for non-security topics)
-- [CONTRIBUTING.md](https://github.com/camadkins/policy-core/blob/main/CONTRIBUTING.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
