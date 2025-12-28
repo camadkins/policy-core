@@ -1,5 +1,8 @@
 # Security Policy
 
+<!-- Note: This file uses relative links (e.g., ARCHITECTURE.md) instead of absolute GitHub URLs
+     for maximum portability across forks, branches, and local clones. -->
+
 ## Project Status
 
 **IMPORTANT:** `policy-core` is a **research and demonstration project** exploring compile-time policy enforcement patterns in Rust. It is **NOT** production-ready and should **NOT** be used in security-critical systems without extensive review and testing.

@@ -21,6 +21,8 @@ exclude = [
     "DESIGN_RATIONALE.md",
     "CODE_OF_CONDUCT.md",
     "CONTRIBUTING.md",
+    ".gitignore",
+    "tests/*.proptest-regressions",
 ]
 
 [package.metadata.docs.rs]
