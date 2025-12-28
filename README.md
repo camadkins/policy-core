@@ -301,7 +301,7 @@ For threat model details and best practices, see [SECURITY.md](SECURITY.md) and 
 
 This project follows [Semantic Versioning](https://semver.org/). See [crates.io/crates/policy-core](https://crates.io/crates/policy-core) for the latest stable version and [CHANGELOG.md](CHANGELOG.md) for release history.
 
-**API Stability:** The core types and traits (`Tainted`, `Verified`, `Sanitizer`, `Sink`) maintain backwards compatibility across minor releases. New features are additive.
+**API Stability:** This crate is currently at version 0.x (pre-1.0), which per [Semantic Versioning](https://semver.org/) is considered unstable. Breaking changes may occur in any 0.x release. Backwards compatibility guarantees for the core types and traits (`Tainted`, `Verified`, `Sanitizer`, `Sink`) will apply only after a 1.0.0 release. Until then, expect evolution as the API matures.
 
 ## Contributing
 
@@ -309,7 +309,7 @@ Contributions are welcome! For significant changes, please open an issue first t
 
 **Before submitting a pull request:**
 
-* Run quality checks: `cargo fmt`, `cargo clippy --all-features -- -D warnings`, `cargo test --all-features`, `cargo dylint --all --workspace`
+* Run quality checks: `cargo fmt`, `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test --all-features`, `cargo test --doc --all-features`, `cargo dylint --all --workspace`
 * Add tests for new functionality (sanitizers, sinks, capabilities)
 * Update documentation to reflect behavior and guarantees
 * Ensure changes align with the core philosophy: explicit policies, no implicit conversions, compile-time safety
