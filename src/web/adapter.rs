@@ -237,21 +237,21 @@ impl TaintedInputs {
         self.path_params.get(key).map(|v| Tainted::new(v.clone()))
     }
 
-    /// Returns an iterator over query parameters as (key, Tainted<value>) pairs.
+    /// Returns an iterator over query parameters as (key, `Tainted<value>`) pairs.
     pub fn query_params(&self) -> impl Iterator<Item = (&str, Tainted<String>)> + '_ {
         self.query_params
             .iter()
             .map(|(k, v)| (k.as_str(), Tainted::new(v.clone())))
     }
 
-    /// Returns an iterator over headers as (key, Tainted<value>) pairs.
+    /// Returns an iterator over headers as (key, `Tainted<value>`) pairs.
     pub fn headers(&self) -> impl Iterator<Item = (&str, Tainted<String>)> + '_ {
         self.headers
             .iter()
             .map(|(k, v)| (k.as_str(), Tainted::new(v.clone())))
     }
 
-    /// Returns an iterator over path parameters as (key, Tainted<value>) pairs.
+    /// Returns an iterator over path parameters as (key, `Tainted<value>`) pairs.
     pub fn path_params(&self) -> impl Iterator<Item = (&str, Tainted<String>)> + '_ {
         self.path_params
             .iter()
