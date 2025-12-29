@@ -11,10 +11,7 @@ readme = "README.md"
 keywords = ["security", "policy", "taint", "capabilities", "enforcement"]
 categories = ["authentication", "development-tools", "rust-patterns"]
 exclude = [
-    "*.local.md",
-    ".claude/",
     "proptest-regressions/",
-    "AUDIT.local.md",
     ".github/",
     "ARCHITECTURE.md",
     "DESIGN_PHILOSOPHY.md",
