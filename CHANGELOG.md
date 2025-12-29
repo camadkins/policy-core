@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+<!-- Add new changes here -->
+
+## [1.0.0] - 2025-12-28
+
 ### Added
 
 #### Milestone 1: Core Foundation
@@ -93,5 +97,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial release candidate prepared for crates.io publishing.
 
-[Unreleased]: https://github.com/camadkins/policy-core/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/camadkins/policy-core/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/camadkins/policy-core/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/camadkins/policy-core/releases/tag/v0.1.0
