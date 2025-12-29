@@ -301,7 +301,7 @@ For threat model details and best practices, see [SECURITY.md](SECURITY.md) and 
 
 This project follows [Semantic Versioning](https://semver.org/). See [crates.io/crates/policy-core](https://crates.io/crates/policy-core) for the latest stable version and [CHANGELOG.md](CHANGELOG.md) for release history.
 
-**API Stability:** This crate is currently at version 0.x (pre-1.0), which per [Semantic Versioning](https://semver.org/) is considered unstable. Breaking changes may occur in any 0.x release. Backwards compatibility guarantees for the core types and traits (`Tainted`, `Verified`, `Sanitizer`, `Sink`) will apply only after a 1.0.0 release. Until then, expect evolution as the API matures.
+**API Stability:** Starting with version 1.0.0, this crate follows strict [Semantic Versioning](https://semver.org/) (SemVer 2.0.0). Patch releases (1.0.x) contain bug fixes and documentation improvements only. Minor releases (1.x.0) add new features in a backwards-compatible manner. Major releases (2.0.0+) may include breaking changes to public APIs. All `pub` items are covered by stability guarantees.
 
 ## Contributing
 
