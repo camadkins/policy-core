@@ -60,7 +60,7 @@ Currently, only the latest version receives security updates:
 
 | Version | Supported |
 | ------- | --------- |
-| 0.1.x   | Yes       |
+| 1.0.x   | Yes       |
 
 ## Reporting a Vulnerability
 
