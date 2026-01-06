@@ -1,4 +1,6 @@
-# policy-core
+![policy-core](policy-core-logo.png)
+
+# Policy Core
 
 > Compile-time policy enforcement and taint tracking for Rust.
 
@@ -11,6 +13,8 @@
 ## What is policy-core?
 
 `policy-core` prevents injection attacks, unauthorized access, and accidental data leaks using Rust's type system. Untrusted input is wrapped in a `Tainted<T>` type with no public accessors. To perform side effects—logging, database writes, HTTP requests—the data must pass through a `Sanitizer` that validates it and returns `Verified<T>`. Sinks accept only `Verified<T>`, making compile-time bypass structurally impossible.
+
+![Security Flow](policy-core-diagram.png)
 
 ```text
 Tainted<T> → Sanitizer → Verified<T> → Sink
