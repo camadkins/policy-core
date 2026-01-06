@@ -7,6 +7,7 @@
 [![Crates.io](https://img.shields.io/crates/v/policy-core.svg)](https://crates.io/crates/policy-core)
 [![Documentation](https://docs.rs/policy-core/badge.svg)](https://docs.rs/policy-core)
 [![CI Status](https://github.com/camadkins/policy-core/workflows/CI/badge.svg)](https://github.com/camadkins/policy-core/actions)
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/camadkins/policy-core)
 
 ## What is policy-core?
 
